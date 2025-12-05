@@ -1,0 +1,5 @@
+{
+  "name": "Financial Market Dashboard",
+  "description": "A professional financial dashboard providing real-time market analysis, stock tracking, and AI-driven investment insights using Gemini models.",
+  "requestFramePermissions": []
+}

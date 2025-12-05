@@ -1,0 +1,79 @@
+import React, { useState } from 'react';
+import { TrendingUp, Loader2 } from 'lucide-react';
+import { IndexInfo, LoadingStatus } from '../types';
+import { GeminiService } from '../services/geminiService';
+
+interface IndexCardProps {
+  info: IndexInfo;
+}
+
+const IndexCard: React.FC<IndexCardProps> = ({ info }) => {
+  const [status, setStatus] = useState<LoadingStatus>(LoadingStatus.IDLE);
+  const [priceData, setPriceData] = useState<string>('---');
+  const [ma50Data, setMa50Data] = useState<string>('---');
+
+  const fetchData = async () => {
+    if (status === LoadingStatus.LOADING) return;
+    setStatus(LoadingStatus.LOADING);
+    setPriceData('載入中...');
+    setMa50Data('載入中...');
+
+    try {
+      const [priceRes, ma50Res] = await Promise.all([
+        GeminiService.fetchPrice(info.queryName),
+        GeminiService.fetchMA50(info.queryName)
+      ]);
+
+      setPriceData(priceRes.text);
+      setMa50Data(ma50Res.text);
+      setStatus(LoadingStatus.SUCCESS);
+    } catch (e) {
+      setPriceData('API 錯誤');
+      setMa50Data('API 錯誤');
+      setStatus(LoadingStatus.ERROR);
+    }
+  };
+
+  const getPriceColor = (text: string) => {
+    if (text.includes('+')) return 'text-emerald-500';
+    if (text.includes('-')) return 'text-red-500';
+    return 'text-slate-700';
+  };
+
+  return (
+    <div className="p-4 bg-white rounded-lg shadow-md border border-slate-200 bg-slate-50/50">
+      <div className="font-bold text-slate-800 text-lg flex justify-between items-center">
+        {info.name}
+        <button
+          onClick={fetchData}
+          disabled={status === LoadingStatus.LOADING}
+          className={`bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium py-1 px-3 rounded-full transition duration-200 text-xs flex items-center ${status === LoadingStatus.LOADING ? 'opacity-75 cursor-not-allowed' : ''}`}
+        >
+          {status === LoadingStatus.LOADING ? (
+            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+          ) : (
+            <TrendingUp className="w-3 h-3 mr-1" />
+          )}
+          查詢
+        </button>
+      </div>
+      <p className="text-sm text-slate-500 mb-2">{info.description}</p>
+      <div className="mt-3 text-sm text-slate-700 border-t pt-2 border-slate-200">
+        <div className="flex justify-between items-center">
+          <span className="text-slate-600">最新價位:</span>
+          <span className={`text-xl font-extrabold ${getPriceColor(priceData)}`}>
+            {priceData}
+          </span>
+        </div>
+        <div className="flex justify-between items-center mt-1">
+          <span className="text-slate-500">50 天線:</span>
+          <span className="text-base font-medium text-slate-700">
+            {ma50Data}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default IndexCard;
