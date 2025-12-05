@@ -1,5 +1,15 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { GeminiResponse, ChartResponse, ChartDataPoint, StockInfo } from "../types";
+import { 
+  GeminiResponse, 
+  ChartResponse, 
+  ChartDataPoint, 
+  StockInfo, 
+  SummaryResponse, 
+  SentimentData,
+  PredictionResponse,
+  PredictionData,
+  ExtendedQuote
+} from "../types";
 
 // Initialize Gemini Client
 // CRITICAL: The API key must be obtained exclusively from process.env.API_KEY
@@ -47,6 +57,22 @@ async function fetchFromGemini(prompt: string, systemInstruction: string, model:
   }
 }
 
+/**
+ * Helper to safely parse JSON from markdown code blocks
+ */
+function cleanAndParseJSON(text: string): any {
+  // Remove markdown code blocks if present
+  const cleaned = text.replace(/```json/g, '').replace(/```/g, '').trim();
+  // Attempt to find the first '{' and last '}' to handle potential preamble text
+  const firstOpen = cleaned.indexOf('{');
+  const lastClose = cleaned.lastIndexOf('}');
+  
+  if (firstOpen !== -1 && lastClose !== -1) {
+    return JSON.parse(cleaned.substring(firstOpen, lastClose + 1));
+  }
+  return JSON.parse(cleaned);
+}
+
 export const GeminiService = {
   async fetchPrice(entityName: string): Promise<GeminiResponse> {
     const query = `查詢 ${entityName} 的最新價位（包括漲跌幅和+/-符號）。`;
@@ -60,10 +86,128 @@ export const GeminiService = {
     return fetchFromGemini(query, systemPrompt);
   },
 
-  async fetchStockSummary(companyName: string): Promise<GeminiResponse> {
-    const query = `請提供關於 ${companyName} 的最新財經新聞、市場情緒和主要驅動因素的摘要。`;
-    const systemPrompt = "你是一個專業的財經分析師。請根據 Google 搜尋的最新資訊，為指定的公司提供一份簡潔（約 100-150 字）、包含市場情緒（正面/負面/中性）和關鍵驅動因素的財經新聞摘要。請使用繁體中文。";
+  async fetchTradingVolume(entityName: string): Promise<GeminiResponse> {
+    const query = `查詢 ${entityName} 的最新交易量 (Volume) 與平均交易量。`;
+    const systemPrompt = "你是一個專業的金融數據助理。請簡潔回報最新交易量與平均交易量 (例如: '25.4M (均量: 22.1M)')。只需返回數據，不需寒暄。請使用繁體中文。";
     return fetchFromGemini(query, systemPrompt);
+  },
+
+  async fetchExtendedQuote(entityName: string): Promise<ExtendedQuote> {
+    const query = `Get the current price, daily percentage change, and 200-day moving average for ${entityName}.
+    
+    Output strictly raw JSON with no markdown formatting.
+    Format:
+    {
+      "price": number,
+      "changePercent": number,
+      "ma200": number
+    }`;
+    
+    try {
+      const response = await ai.models.generateContent({
+        model: MODEL_NAME,
+        contents: query,
+        config: {
+          tools: [{ googleSearch: {} }],
+          // responseMimeType cannot be used with googleSearch
+        }
+      });
+      
+      if (response.text) {
+        return cleanAndParseJSON(response.text) as ExtendedQuote;
+      }
+      throw new Error("No data");
+    } catch (e) {
+      console.error("Extended Quote Error", e);
+      throw new Error("無法獲取進階報價數據");
+    }
+  },
+
+  async fetchStockSummary(companyName: string): Promise<SummaryResponse> {
+    const query = `Provide a rich, detailed financial analysis summary for ${companyName}.
+    
+    Requirements:
+    1. Identify the *primary* driver of recent price action (e.g. Earnings, Product Launch, Macro, Analyst upgrade).
+    2. Mention any significant recent news or rumors.
+    3. Provide a brief outlook or sentiment context.
+    
+    Output strictly raw JSON with no markdown formatting.
+    Format:
+    {
+      "summary": "string (Rich text in Traditional Chinese, approx 200-300 characters. Use bullet points '•' to separate key points for readability)",
+      "sentiment": "positive" | "negative" | "neutral",
+      "score": number (0-100)
+    }`;
+    
+    try {
+      const response = await ai.models.generateContent({
+        model: MODEL_NAME,
+        contents: query,
+        config: {
+          tools: [{ googleSearch: {} }],
+          systemInstruction: "你是一個專業的財經分析師。請搜尋最新資訊。Output JSON only.",
+          // responseMimeType cannot be used with googleSearch
+        }
+      });
+
+      // Extract sources similar to generic fetch
+      const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+      const sources = groundingChunks
+        .map((chunk: any) => chunk.web)
+        .filter((web: any) => web && web.uri && web.title)
+        .map((web: any) => ({ uri: web.uri, title: web.title }));
+       const uniqueSources = Array.from(new Map(sources.map((s: any) => [s.uri, s])).values()) as { uri: string; title: string }[];
+
+      if (response.text) {
+        const data = cleanAndParseJSON(response.text) as SentimentData;
+        return { data, sources: uniqueSources.slice(0, 3) };
+      }
+      throw new Error("Empty response");
+    } catch (e) {
+      console.error("Summary Error", e);
+      throw new Error("無法獲取摘要");
+    }
+  },
+
+  async fetchPricePrediction(companyName: string): Promise<PredictionResponse> {
+    const query = `Analyze the historical data and recent news for ${companyName} to predict its price trend for the next 7 days. Provide a specific target price.
+    
+    Output strictly raw JSON with no markdown formatting.
+    Format:
+    {
+      "predictedPrice": number,
+      "confidenceScore": number (0-100),
+      "timeframe": "string",
+      "reasoning": "string"
+    }`;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-pro-preview', // Use Pro for reasoning
+            contents: query,
+            config: {
+                tools: [{ googleSearch: {} }],
+                systemInstruction: "You are an AI market simulator. Output JSON only.",
+                // responseMimeType cannot be used with googleSearch
+            }
+        });
+
+        const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+        const sources = groundingChunks
+          .map((chunk: any) => chunk.web)
+          .filter((web: any) => web && web.uri && web.title)
+          .map((web: any) => ({ uri: web.uri, title: web.title }));
+        const uniqueSources = Array.from(new Map(sources.map((s: any) => [s.uri, s])).values()) as { uri: string; title: string }[];
+
+        if (response.text) {
+            const data = cleanAndParseJSON(response.text) as PredictionData;
+            return { data, sources: uniqueSources.slice(0, 3) };
+        }
+        throw new Error("Prediction failed");
+    } catch (e) {
+        console.error("Prediction Error", e);
+        throw new Error("無法生成預測");
+    }
   },
 
   async fetchInvestmentView(companyName: string): Promise<GeminiResponse> {

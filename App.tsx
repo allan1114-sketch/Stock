@@ -7,7 +7,7 @@ import StockCard from './components/StockCard';
 import NotificationToast from './components/NotificationToast';
 import { StockInfo, NotificationMsg } from './types';
 import { GeminiService } from './services/geminiService';
-import { SearchX, Star, Info } from 'lucide-react';
+import { SearchX, Star, Info, ListPlus } from 'lucide-react';
 
 const App: React.FC = () => {
   const [searchResult, setSearchResult] = useState<StockInfo | null>(null);
@@ -61,6 +61,47 @@ const App: React.FC = () => {
     setSearchError('');
     setSearchResult(null);
 
+    // Batch Process Check
+    if (query.includes(',')) {
+        const symbols = query.split(',').map(s => s.trim()).filter(s => s.length > 0);
+        if (symbols.length === 0) {
+            setIsSearching(false);
+            return;
+        }
+
+        addNotification('批量處理中', `正在解析 ${symbols.length} 個標的...`, 'info');
+        
+        let successCount = 0;
+        const newStocks: StockInfo[] = [];
+
+        // Execute in parallel (limited by API rate limits conceptually, but fine for demo)
+        await Promise.all(symbols.map(async (sym) => {
+             try {
+                 const res = await GeminiService.resolveStockQuery(sym);
+                 if (res) {
+                     // Check if already in watchlist to avoid duplicates
+                     if (!watchlist.some(w => w.symbol === res.symbol)) {
+                         newStocks.push(res);
+                     }
+                     successCount++;
+                 }
+             } catch (e) { console.error(e); }
+        }));
+
+        if (newStocks.length > 0) {
+            setWatchlist(prev => [...prev, ...newStocks]);
+            addNotification('批量加入成功', `已將 ${newStocks.length} 個新標的加入觀察名單`, 'success');
+        } else if (successCount > 0) {
+            addNotification('重複項目', '所有搜尋到的標的已在觀察名單中', 'info');
+        } else {
+            setSearchError('無法識別輸入的任何代號');
+        }
+
+        setIsSearching(false);
+        return;
+    }
+
+    // Single Search
     try {
       const result = await GeminiService.resolveStockQuery(query);
       if (result) {

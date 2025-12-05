@@ -8,9 +8,40 @@ export interface GeminiResponse {
   sources: Source[];
 }
 
+export interface SentimentData {
+  summary: string;
+  sentiment: 'positive' | 'negative' | 'neutral';
+  score: number; // 0 to 100
+}
+
+export interface SummaryResponse {
+  data: SentimentData;
+  sources: Source[];
+}
+
+export interface PredictionData {
+  predictedPrice: number;
+  confidenceScore: number; // 0 to 100
+  timeframe: string;
+  reasoning: string;
+}
+
+export interface PredictionResponse {
+  data: PredictionData;
+  sources: Source[];
+}
+
 export interface ChartDataPoint {
   time: string;
   price: number;
+}
+
+export interface ChartAnnotation {
+  id: string;
+  type: 'line'; // Horizontal line (Support/Resistance)
+  yAxisValue: number;
+  label?: string;
+  color?: string;
 }
 
 export interface ChartResponse {
@@ -38,10 +69,13 @@ export interface IndexInfo {
   queryName: string;
 }
 
+export type AlertType = 'above' | 'below' | 'change_pct' | 'ma200_cross';
+
 export interface PriceAlert {
-  targetPrice: number;
+  type: AlertType;
+  targetValue: number; // Price, Percentage, or 0 (for boolean crosses)
   active: boolean;
-  type: 'above' | 'below'; // Notify when price goes above or below target
+  message?: string;
 }
 
 export interface NotificationMsg {
@@ -49,4 +83,10 @@ export interface NotificationMsg {
   title: string;
   message: string;
   type: 'success' | 'alert' | 'info';
+}
+
+export interface ExtendedQuote {
+  price: number;
+  changePercent: number;
+  ma200: number;
 }

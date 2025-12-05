@@ -16,6 +16,8 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch, isLoading }) => {
     }
   };
 
+  const isBatch = query.includes(',');
+
   return (
     <form onSubmit={handleSubmit} className="relative max-w-3xl mx-auto mb-10">
       <div className="relative flex items-center group">
@@ -26,7 +28,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch, isLoading }) => {
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="輸入股票代號或公司名稱 (例如: NVDA, Tesla, 台積電)..."
+          placeholder={isBatch ? "多個代號搜尋: AAPL, MSFT, TSLA" : "輸入股票代號或公司名稱 (例如: NVDA, Tesla)..."}
           className="w-full px-5 py-4 pl-14 text-lg rounded-xl border-2 border-slate-200 bg-white focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all shadow-sm group-hover:shadow-md"
           disabled={isLoading}
         />
@@ -39,10 +41,10 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch, isLoading }) => {
             {isLoading ? (
                 <>
                 <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                搜尋中
+                {isBatch ? '批量處理' : '搜尋中'}
                 </>
             ) : (
-                '搜尋'
+                isBatch ? '批量加入' : '搜尋'
             )}
             </button>
         </div>

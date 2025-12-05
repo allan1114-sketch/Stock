@@ -7,16 +7,19 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Brush
+  Brush,
+  ReferenceLine,
+  Label
 } from 'recharts';
-import { ChartDataPoint } from '../types';
+import { ChartDataPoint, ChartAnnotation } from '../types';
 
 interface StockChartProps {
   data: ChartDataPoint[];
   color?: string;
+  annotations?: ChartAnnotation[];
 }
 
-const StockChart: React.FC<StockChartProps> = ({ data, color = "#0ea5e9" }) => {
+const StockChart: React.FC<StockChartProps> = ({ data, color = "#0ea5e9", annotations = [] }) => {
   // Safe check for data
   if (!data || !Array.isArray(data) || data.length === 0) {
     return (
@@ -53,7 +56,7 @@ const StockChart: React.FC<StockChartProps> = ({ data, color = "#0ea5e9" }) => {
   };
 
   return (
-    <div className="h-80 w-full bg-white p-2 rounded-lg">
+    <div className="h-80 w-full bg-white p-2 rounded-lg relative">
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart
           data={data}
@@ -93,6 +96,20 @@ const StockChart: React.FC<StockChartProps> = ({ data, color = "#0ea5e9" }) => {
             animationDuration={800}
             activeDot={{ r: 6, strokeWidth: 2, stroke: '#fff' }}
           />
+          
+          {annotations.map((ann) => (
+             <ReferenceLine 
+                key={ann.id} 
+                y={ann.yAxisValue} 
+                stroke={ann.color || "#ef4444"} 
+                strokeDasharray="4 4" 
+                strokeWidth={2}
+                ifOverflow="extendDomain"
+             >
+                <Label value={ann.label} position="insideTopLeft" fill={ann.color || "#ef4444"} fontSize={10} />
+             </ReferenceLine>
+          ))}
+
           <Brush 
             dataKey="time" 
             height={25} 

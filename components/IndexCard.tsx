@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { TrendingUp, Loader2 } from 'lucide-react';
 import { IndexInfo, LoadingStatus } from '../types';
 import { GeminiService } from '../services/geminiService';
+import { parsePrice } from '../utils';
 
 interface IndexCardProps {
   info: IndexInfo;
@@ -40,6 +41,15 @@ const IndexCard: React.FC<IndexCardProps> = ({ info }) => {
     return 'text-slate-700';
   };
 
+  // Determine MA50 color
+  const priceNum = parsePrice(priceData);
+  const ma50Num = parsePrice(ma50Data);
+  let maColor = 'text-slate-700';
+  if (priceNum !== null && ma50Num !== null) {
+      if (priceNum > ma50Num) maColor = 'text-emerald-600 font-bold';
+      else if (priceNum < ma50Num) maColor = 'text-rose-600 font-bold';
+  }
+
   return (
     <div className="p-4 bg-white rounded-lg shadow-md border border-slate-200 bg-slate-50/50">
       <div className="font-bold text-slate-800 text-lg flex justify-between items-center">
@@ -67,7 +77,7 @@ const IndexCard: React.FC<IndexCardProps> = ({ info }) => {
         </div>
         <div className="flex justify-between items-center mt-1">
           <span className="text-slate-500">50 天線:</span>
-          <span className="text-base font-medium text-slate-700">
+          <span className={`text-base font-medium ${maColor}`}>
             {ma50Data}
           </span>
         </div>
