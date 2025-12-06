@@ -15,8 +15,13 @@ import {
   BrainCircuit,
   PenTool,
   Trash2,
+  ChevronDown,
+  ChevronUp,
+  ExternalLink,
+  Target,
+  BarChartHorizontal
 } from 'lucide-react';
-import { StockInfo, LoadingStatus, Source, ChartDataPoint, PriceAlert, AlertType, PredictionData, ChartAnnotation } from '../types';
+import { StockInfo, LoadingStatus, Source, ChartDataPoint, PriceAlert, AlertType, PredictionData, ChartAnnotation, TechIndicators, AnalystRating, NewsItem } from '../types';
 import { GeminiService } from '../services/geminiService';
 import StockChart from './StockChart';
 import { parsePrice } from '../utils';
@@ -61,17 +66,23 @@ const StockCard: React.FC<StockCardProps> = ({ stock, onNotify, isWatched, onTog
   const [price, setPrice] = useState<string>('點擊查詢');
   const [ma50, setMa50] = useState<string>('點擊查詢');
   const [volume, setVolume] = useState<string>('---');
+  const [techIndicators, setTechIndicators] = useState<TechIndicators>({ rsi: '---', macd: '---' });
   
   // States for Summary & Sentiment
   const [summaryStatus, setSummaryStatus] = useState<LoadingStatus>(LoadingStatus.IDLE);
   const [summary, setSummary] = useState<string>('點擊「新聞摘要」按鈕進行分析。');
   const [sentiment, setSentiment] = useState<{label: string, score: number} | null>(null);
   const [summarySources, setSummarySources] = useState<Source[]>([]);
+  // New States for Expandable News
+  const [showNews, setShowNews] = useState(false);
+  const [newsList, setNewsList] = useState<NewsItem[]>([]);
+  const [newsStatus, setNewsStatus] = useState<LoadingStatus>(LoadingStatus.IDLE);
 
   // States for Investment View
   const [viewStatus, setViewStatus] = useState<LoadingStatus>(LoadingStatus.IDLE);
   const [viewHtml, setViewHtml] = useState<React.ReactNode>('點擊「投資觀點」按鈕進行分析。');
   const [viewSources, setViewSources] = useState<Source[]>([]);
+  const [analystRating, setAnalystRating] = useState<AnalystRating | null>(null);
 
   // States for Prediction
   const [predictStatus, setPredictStatus] = useState<LoadingStatus>(LoadingStatus.IDLE);
@@ -134,16 +145,19 @@ const StockCard: React.FC<StockCardProps> = ({ stock, onNotify, isWatched, onTog
     setPrice('載入中...');
     setMa50('載入中...');
     setVolume('載入中...');
+    setTechIndicators({ rsi: '---', macd: '---' });
 
     try {
-      const [pRes, mRes, vRes] = await Promise.all([
+      const [pRes, mRes, vRes, tRes] = await Promise.all([
         GeminiService.fetchPrice(stock.queryName),
         GeminiService.fetchMA50(stock.queryName),
-        GeminiService.fetchTradingVolume(stock.queryName)
+        GeminiService.fetchTradingVolume(stock.queryName),
+        GeminiService.fetchTechnicalIndicators(stock.queryName)
       ]);
       setPrice(pRes.text);
       setMa50(mRes.text);
       setVolume(vRes.text);
+      setTechIndicators(tRes);
       setDataStatus(LoadingStatus.SUCCESS);
       
       // Basic Alerts
@@ -205,6 +219,22 @@ const StockCard: React.FC<StockCardProps> = ({ stock, onNotify, isWatched, onTog
     }
   };
 
+  const toggleNews = async () => {
+      const newShowNews = !showNews;
+      setShowNews(newShowNews);
+      
+      if (newShowNews && newsList.length === 0 && newsStatus !== LoadingStatus.LOADING) {
+          setNewsStatus(LoadingStatus.LOADING);
+          try {
+              const res = await GeminiService.fetchCompanyNews(stock.queryName);
+              setNewsList(res.news);
+              setNewsStatus(LoadingStatus.SUCCESS);
+          } catch (e) {
+              setNewsStatus(LoadingStatus.ERROR);
+          }
+      }
+  };
+
   const fetchPrediction = async () => {
       if (predictStatus === LoadingStatus.LOADING) return;
       setPredictStatus(LoadingStatus.LOADING);
@@ -226,12 +256,18 @@ const StockCard: React.FC<StockCardProps> = ({ stock, onNotify, isWatched, onTog
     setViewStatus(LoadingStatus.LOADING);
     setViewHtml('AI 正在生成觀點...'); 
     setViewSources([]);
+    setAnalystRating(null);
 
     try {
-      const res = await GeminiService.fetchInvestmentView(stock.queryName);
+      const [res, rating] = await Promise.all([
+          GeminiService.fetchInvestmentView(stock.queryName),
+          GeminiService.fetchAnalystRatings(stock.queryName)
+      ]);
+      
       const formattedView = formatViewContent(res.text);
       setViewHtml(formattedView);
       setViewSources(res.sources);
+      setAnalystRating(rating);
       setViewStatus(LoadingStatus.SUCCESS);
     } catch {
       setViewHtml('觀點 API 錯誤或網路問題。');
@@ -545,40 +581,65 @@ const StockCard: React.FC<StockCardProps> = ({ stock, onNotify, isWatched, onTog
           <h4 className="text-base font-semibold text-slate-700 mb-2 border-b border-slate-200 pb-1 flex items-center">
             <Server className="w-4 h-4 mr-1 text-sky-500" /> 即時數據
           </h4>
-          <div className="text-sm text-slate-700">
-            <div className="flex justify-between items-center mb-1">
+          <div className="text-sm text-slate-700 space-y-2">
+            <div className="flex justify-between items-center">
               <span className="font-medium text-slate-600">最新價位:</span>
               <span className={`text-xl font-extrabold ${getPriceColor(price)}`}>{price}</span>
             </div>
-            <div className="flex justify-between items-center pt-1 border-t border-slate-200">
+            <div className="flex justify-between items-center pt-2 border-t border-slate-100">
               <span className="font-medium text-slate-500">50 天線 (MA50):</span>
               <span className={`text-base ${maColor}`}>{ma50}</span>
             </div>
-            <div className="flex justify-between items-center pt-1 border-t border-slate-200 mt-1">
+            <div className="flex justify-between items-center pt-2 border-t border-slate-100">
               <span className="font-medium text-slate-500">交易量:</span>
               <span className="text-base font-medium text-slate-700">{volume}</span>
             </div>
-            <div className="mt-3 pt-2 border-t border-slate-200">
+            
+            {/* New Indicators */}
+            <div className="flex justify-between items-center pt-2 border-t border-slate-100">
+              <span className="font-medium text-slate-500">RSI (14):</span>
+              <span className="text-base font-medium text-slate-700">{techIndicators.rsi}</span>
+            </div>
+            <div className="flex justify-between items-center pt-2 border-t border-slate-100">
+              <span className="font-medium text-slate-500">MACD:</span>
+              <span className="text-xs font-medium text-slate-700 max-w-[50%] text-right">{techIndicators.macd}</span>
+            </div>
+
+            <div className="mt-4 pt-3 border-t-2 border-slate-200">
                 <button 
                   onClick={fetchPrediction} 
                   disabled={predictStatus === LoadingStatus.LOADING}
-                  className="w-full bg-violet-100 hover:bg-violet-200 text-violet-700 text-xs py-2 rounded flex items-center justify-center font-bold transition-colors"
+                  className="w-full bg-violet-100 hover:bg-violet-200 text-violet-700 text-xs py-2 rounded flex items-center justify-center font-bold transition-colors mb-2"
                 >
                     {predictStatus === LoadingStatus.LOADING ? <Loader2 className="w-3 h-3 animate-spin mr-1"/> : <BrainCircuit className="w-3 h-3 mr-1"/>}
                     AI 價格預測 (7日)
                 </button>
                 {prediction && (
-                    <div className="mt-2 bg-white p-2 rounded border border-violet-100 text-xs">
-                        <div className="flex justify-between mb-1">
-                            <span className="text-slate-500">目標價:</span>
-                            <span className="font-bold text-violet-700">${prediction.predictedPrice}</span>
+                    <div className="bg-white p-3 rounded border border-violet-100 text-xs shadow-sm">
+                        <div className="flex justify-between items-center mb-2">
+                            <div className="flex items-center text-violet-800 font-bold">
+                                <Target className="w-4 h-4 mr-1" />
+                                目標價: ${prediction.predictedPrice}
+                            </div>
                         </div>
-                        <div className="flex justify-between mb-1">
-                            <span className="text-slate-500">信心分數:</span>
-                            <span className="font-bold text-violet-700">{prediction.confidenceScore}</span>
+                        
+                        <div className="mb-2">
+                            <div className="flex justify-between mb-1">
+                                <span className="text-slate-500">AI 信心分數:</span>
+                                <span className="font-bold text-violet-600">{prediction.confidenceScore}%</span>
+                            </div>
+                            <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                                <div 
+                                    className="h-full bg-gradient-to-r from-violet-300 to-violet-600 transition-all duration-700" 
+                                    style={{ width: `${prediction.confidenceScore}%` }}
+                                />
+                            </div>
                         </div>
-                        <p className="text-slate-600 leading-tight mt-1">{prediction.reasoning}</p>
-                        <div className="mt-1 text-[10px] text-slate-400 text-right">警語: 僅供參考，非投資建議</div>
+
+                        <p className="text-slate-600 leading-tight mt-1 border-t border-slate-100 pt-1 italic">{prediction.reasoning}</p>
+                        <div className="mt-1 text-[10px] text-slate-400 text-right flex items-center justify-end">
+                             <span className="bg-slate-100 px-1 rounded">僅供參考</span>
+                        </div>
                     </div>
                 )}
             </div>
@@ -612,10 +673,49 @@ const StockCard: React.FC<StockCardProps> = ({ stock, onNotify, isWatched, onTog
                 )}
            </div>
            
-          <div className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed flex-grow">
+          <div className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
             {summary}
           </div>
-          {renderSources(summarySources)}
+          
+          {/* Expandable News Section */}
+          <div className="mt-auto pt-3">
+             <div className="flex justify-between items-center">
+                 {renderSources(summarySources)}
+                 <button 
+                    onClick={toggleNews}
+                    className="flex items-center text-xs text-teal-600 hover:text-teal-800 font-medium transition-colors"
+                 >
+                    {showNews ? '隱藏' : '顯示更多'}
+                    {showNews ? <ChevronUp className="w-3 h-3 ml-1" /> : <ChevronDown className="w-3 h-3 ml-1" />}
+                 </button>
+             </div>
+             
+             {showNews && (
+                 <div className="mt-3 border-t border-slate-200 pt-3 animate-fade-in">
+                     <h5 className="text-xs font-bold text-slate-500 mb-2">延伸閱讀 (最新新聞)</h5>
+                     {newsStatus === LoadingStatus.LOADING ? (
+                         <div className="flex justify-center py-2 text-slate-400"><Loader2 className="w-4 h-4 animate-spin" /></div>
+                     ) : newsList.length > 0 ? (
+                         <ul className="space-y-2">
+                             {newsList.map((item, idx) => (
+                                 <li key={idx} className="text-xs flex flex-col bg-white p-2 rounded border border-slate-100 hover:border-teal-200 transition-colors">
+                                     <a href={item.link} target="_blank" rel="noreferrer" className="font-medium text-slate-700 hover:text-teal-600 flex items-start">
+                                        <ExternalLink className="w-3 h-3 mr-1.5 mt-0.5 flex-shrink-0 text-slate-400" />
+                                        {item.title}
+                                     </a>
+                                     <div className="flex justify-between mt-1 pl-5 text-[10px] text-slate-400">
+                                         <span>{item.source}</span>
+                                         <span>{item.date}</span>
+                                     </div>
+                                 </li>
+                             ))}
+                         </ul>
+                     ) : (
+                         <p className="text-xs text-slate-400">暫無更多新聞</p>
+                     )}
+                 </div>
+             )}
+          </div>
         </div>
 
         {/* Investment View Box */}
@@ -626,6 +726,33 @@ const StockCard: React.FC<StockCardProps> = ({ stock, onNotify, isWatched, onTog
           <div className="text-sm text-slate-700">
              {typeof viewHtml === 'string' ? viewHtml : viewHtml}
           </div>
+          
+          {/* Analyst Ratings Section */}
+          {analystRating && (
+              <div className="mt-6 pt-4 border-t border-slate-200">
+                  <h5 className="text-sm font-bold text-slate-600 mb-3 flex items-center">
+                      <BarChartHorizontal className="w-4 h-4 mr-2" /> 分析師評級共識: <span className="ml-2 px-2 py-0.5 bg-slate-800 text-white rounded text-xs">{analystRating.consensus}</span>
+                  </h5>
+                  <div className="flex items-center gap-1 h-6 w-full max-w-md rounded-full overflow-hidden bg-slate-100">
+                      {analystRating.buyCount > 0 && (
+                          <div className="h-full bg-emerald-500 flex items-center justify-center text-[10px] text-white font-bold" style={{ flex: analystRating.buyCount }}>
+                              Buy {analystRating.buyCount}
+                          </div>
+                      )}
+                      {analystRating.holdCount > 0 && (
+                          <div className="h-full bg-slate-400 flex items-center justify-center text-[10px] text-white font-bold" style={{ flex: analystRating.holdCount }}>
+                              Hold {analystRating.holdCount}
+                          </div>
+                      )}
+                      {analystRating.sellCount > 0 && (
+                          <div className="h-full bg-rose-500 flex items-center justify-center text-[10px] text-white font-bold" style={{ flex: analystRating.sellCount }}>
+                              Sell {analystRating.sellCount}
+                          </div>
+                      )}
+                  </div>
+              </div>
+          )}
+          
           {renderSources(viewSources)}
         </div>
       </div>

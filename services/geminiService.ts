@@ -8,7 +8,10 @@ import {
   SentimentData,
   PredictionResponse,
   PredictionData,
-  ExtendedQuote
+  ExtendedQuote,
+  TechIndicators,
+  AnalystRating,
+  NewsResponse
 } from "../types";
 
 // Initialize Gemini Client
@@ -92,6 +95,34 @@ export const GeminiService = {
     return fetchFromGemini(query, systemPrompt);
   },
 
+  async fetchTechnicalIndicators(entityName: string): Promise<TechIndicators> {
+    const query = `Find the latest Relative Strength Index (RSI 14) value and MACD (Line/Signal/Hist) status for ${entityName}.
+    
+    Output strictly raw JSON.
+    Format:
+    {
+      "rsi": number, 
+      "macd": "string (e.g., 'Bullish Crossover' or 'Line 150.2')" 
+    }`;
+
+    try {
+      const response = await ai.models.generateContent({
+        model: MODEL_NAME,
+        contents: query,
+        config: {
+          tools: [{ googleSearch: {} }],
+        }
+      });
+      if (response.text) {
+        return cleanAndParseJSON(response.text) as TechIndicators;
+      }
+      throw new Error("No data");
+    } catch(e) {
+      console.error("Tech Indicators Error", e);
+      return { rsi: "N/A", macd: "N/A" };
+    }
+  },
+
   async fetchExtendedQuote(entityName: string): Promise<ExtendedQuote> {
     const query = `Get the current price, daily percentage change, and 200-day moving average for ${entityName}.
     
@@ -166,6 +197,70 @@ export const GeminiService = {
     } catch (e) {
       console.error("Summary Error", e);
       throw new Error("無法獲取摘要");
+    }
+  },
+
+  async fetchCompanyNews(companyName: string): Promise<NewsResponse> {
+    const query = `Find 5 recent important financial news articles for ${companyName}.
+    
+    Output strictly raw JSON.
+    Format:
+    {
+      "news": [
+        {
+          "title": "string (Traditional Chinese translation)",
+          "link": "string (URL)",
+          "source": "string (Publisher name)",
+          "date": "string (e.g. 2 hours ago)"
+        }
+      ]
+    }`;
+
+    try {
+      const response = await ai.models.generateContent({
+        model: MODEL_NAME,
+        contents: query,
+        config: {
+          tools: [{ googleSearch: {} }],
+        }
+      });
+      if (response.text) {
+        return cleanAndParseJSON(response.text) as NewsResponse;
+      }
+      throw new Error("No news data");
+    } catch (e) {
+       console.error("News Fetch Error", e);
+       return { news: [] };
+    }
+  },
+
+  async fetchAnalystRatings(companyName: string): Promise<AnalystRating | null> {
+    const query = `Get the latest analyst consensus ratings for ${companyName} (Buy/Hold/Sell counts).
+    
+    Output strictly raw JSON.
+    Format:
+    {
+      "consensus": "Buy" | "Overweight" | "Hold" | "Underweight" | "Sell",
+      "buyCount": number,
+      "holdCount": number,
+      "sellCount": number
+    }`;
+
+    try {
+      const response = await ai.models.generateContent({
+        model: MODEL_NAME,
+        contents: query,
+        config: {
+           tools: [{ googleSearch: {} }],
+        }
+      });
+      if (response.text) {
+        return cleanAndParseJSON(response.text) as AnalystRating;
+      }
+      return null;
+    } catch (e) {
+      console.error("Analyst Rating Error", e);
+      return null;
     }
   },
 

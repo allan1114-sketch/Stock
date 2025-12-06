@@ -1,3 +1,4 @@
+
 export interface Source {
   uri: string;
   title: string;
@@ -89,4 +90,27 @@ export interface ExtendedQuote {
   price: number;
   changePercent: number;
   ma200: number;
+}
+
+export interface TechIndicators {
+  rsi: number | string;
+  macd: string;
+}
+
+export interface AnalystRating {
+  consensus: 'Buy' | 'Overweight' | 'Hold' | 'Underweight' | 'Sell';
+  buyCount: number;
+  holdCount: number;
+  sellCount: number;
+}
+
+export interface NewsItem {
+  title: string;
+  link: string;
+  source: string;
+  date: string;
+}
+
+export interface NewsResponse {
+  news: NewsItem[];
 }
