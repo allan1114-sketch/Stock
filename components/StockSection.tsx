@@ -1,39 +1,16 @@
-import React from 'react';
-import { DollarSign } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { DollarSign, ArrowUpDown } from 'lucide-react';
 import StockCard from './StockCard';
 import { StockInfo } from '../types';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const STOCKS: StockInfo[] = [
-  { 
-    name: 'Apple (AAPL) 蘋果', 
-    symbol: 'AAPL', 
-    description: '硬體與服務巨頭', 
-    queryName: 'Apple AAPL' 
-  },
-  { 
-    name: 'Microsoft (MSFT) 微軟', 
-    symbol: 'MSFT', 
-    description: '雲端運算與軟體服務', 
-    queryName: 'Microsoft MSFT' 
-  },
-  { 
-    name: 'Alphabet (GOOGL) 谷歌', 
-    symbol: 'GOOGL', 
-    description: '搜尋、廣告與 AI 領航者', 
-    queryName: 'Alphabet GOOGL' 
-  },
-  { 
-    name: 'Amazon (AMZN) 亞馬遜', 
-    symbol: 'AMZN', 
-    description: '電子商務與 AWS 雲服務', 
-    queryName: 'Amazon AMZN' 
-  },
-  { 
-    name: 'Meta Platforms (META) 臉書', 
-    symbol: 'META', 
-    description: '社交媒體與元宇宙', 
-    queryName: 'Meta Platforms META' 
-  },
+  { name: 'Apple (AAPL)', symbol: 'AAPL', description: 'Consumer Electronics', queryName: 'Apple AAPL' },
+  { name: 'Microsoft (MSFT)', symbol: 'MSFT', description: 'Software Infrastructure', queryName: 'Microsoft MSFT' },
+  { name: 'Alphabet (GOOGL)', symbol: 'GOOGL', description: 'Internet Content & Info', queryName: 'Alphabet GOOGL' },
+  { name: 'Amazon (AMZN)', symbol: 'AMZN', description: 'Internet Retail', queryName: 'Amazon AMZN' },
+  { name: 'Meta (META)', symbol: 'META', description: 'Internet Content', queryName: 'Meta Platforms META' },
+  { name: 'NVIDIA (NVDA)', symbol: 'NVDA', description: 'Semiconductors', queryName: 'NVIDIA NVDA' },
 ];
 
 interface StockSectionProps {
@@ -43,14 +20,41 @@ interface StockSectionProps {
 }
 
 const StockSection: React.FC<StockSectionProps> = ({ onNotify, watchlist, onToggleWatch }) => {
+  const { t } = useLanguage();
+  const [sortBy, setSortBy] = useState<'none' | 'name' | 'symbol'>('none');
+
+  const sortedStocks = useMemo(() => {
+    let list = [...STOCKS];
+    if (sortBy === 'name') {
+      list.sort((a, b) => a.name.localeCompare(b.name));
+    } else if (sortBy === 'symbol') {
+      list.sort((a, b) => a.symbol.localeCompare(b.symbol));
+    }
+    return list;
+  }, [sortBy]);
+
   return (
     <section>
-      <h2 className="text-2xl font-bold text-slate-700 mb-6 flex items-center pb-2 border-b-2 border-slate-300">
-        <DollarSign className="w-6 h-6 mr-2 text-sky-600" />
-        重點科技個股專業分析
-      </h2>
-      <div className="space-y-12">
-        {STOCKS.map(stock => (
+      <div className="flex justify-between items-center mb-6 pb-2 border-b-2 border-slate-300">
+          <h2 className="text-2xl font-bold text-slate-700 flex items-center">
+            <DollarSign className="w-6 h-6 mr-2 text-sky-600" />
+            {t('stock.title')}
+          </h2>
+          <div className="flex items-center gap-2">
+             <ArrowUpDown className="w-4 h-4 text-slate-500" />
+             <select 
+               className="text-sm border-none bg-transparent font-medium text-slate-600 focus:ring-0 cursor-pointer"
+               value={sortBy}
+               onChange={(e) => setSortBy(e.target.value as any)}
+             >
+                 <option value="none">{t('sort.none')}</option>
+                 <option value="name">{t('sort.name')}</option>
+                 <option value="symbol">{t('sort.symbol')}</option>
+             </select>
+          </div>
+      </div>
+      <div className="space-y-8">
+        {sortedStocks.map(stock => (
           <StockCard 
             key={stock.symbol} 
             stock={stock} 

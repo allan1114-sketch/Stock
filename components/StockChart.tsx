@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   AreaChart,
   Area,
@@ -9,9 +9,13 @@ import {
   ResponsiveContainer,
   Brush,
   ReferenceLine,
-  Label
+  Label,
+  ComposedChart,
+  Bar,
+  Line
 } from 'recharts';
 import { ChartDataPoint, ChartAnnotation } from '../types';
+import { CandlestickChart, LineChart } from 'lucide-react';
 
 interface StockChartProps {
   data: ChartDataPoint[];
@@ -19,7 +23,52 @@ interface StockChartProps {
   annotations?: ChartAnnotation[];
 }
 
+// Custom shape for Candlestick
+const CandleStickShape = (props: any) => {
+  const { x, y, width, height, payload, yAxis } = props;
+  const { open, close, high, low } = payload;
+  
+  // Guard against missing data
+  if (open == null || close == null || high == null || low == null) return null;
+
+  const isRising = close > open;
+  const color = isRising ? '#10b981' : '#ef4444'; // Emerald for up, Red for down
+  
+  // Calculate coordinates using the Y-axis scale
+  // Recharts passes the yAxis scale function in the props for Custom Shapes on Bar
+  const yHigh = yAxis.scale(high);
+  const yLow = yAxis.scale(low);
+  const yOpen = yAxis.scale(open);
+  const yClose = yAxis.scale(close);
+  
+  const bodyTop = Math.min(yOpen, yClose);
+  let bodyHeight = Math.abs(yOpen - yClose);
+  
+  // Ensure we can see the body even if open === close (Doji)
+  if (bodyHeight < 1) bodyHeight = 1;
+
+  // Center the wick
+  const wickX = x + width / 2;
+  
+  return (
+    <g stroke={color} fill={color} strokeWidth="1.5">
+      {/* Wick */}
+      <path d={`M ${wickX},${yHigh} L ${wickX},${yLow}`} />
+      {/* Body */}
+      <rect 
+        x={x} 
+        y={bodyTop} 
+        width={width} 
+        height={bodyHeight} 
+        fill={color}
+      />
+    </g>
+  );
+};
+
 const StockChart: React.FC<StockChartProps> = ({ data, color = "#0ea5e9", annotations = [] }) => {
+  const [chartType, setChartType] = useState<'area' | 'candle'>('area');
+
   // Safe check for data
   if (!data || !Array.isArray(data) || data.length === 0) {
     return (
@@ -30,25 +79,43 @@ const StockChart: React.FC<StockChartProps> = ({ data, color = "#0ea5e9", annota
   }
 
   // Calculate domain for better visual scaling
-  const prices = data.map(d => d.price);
-  const minPrice = Math.min(...prices);
-  const maxPrice = Math.max(...prices);
-  const padding = (maxPrice - minPrice) * 0.1; // Increased padding slightly
+  // For candle, we need to consider high/low to prevent wicks from going off chart
+  const allValues = chartType === 'candle' 
+    ? data.flatMap(d => [d.high || d.price, d.low || d.price])
+    : data.map(d => d.price);
+    
+  const minPrice = Math.min(...allValues);
+  const maxPrice = Math.max(...allValues);
+  const padding = (maxPrice - minPrice) * 0.1;
 
-  // Custom Tooltip component for precise data display
+  // Custom Tooltip component
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
+      const d = payload[0].payload;
       return (
-        <div className="bg-white/95 backdrop-blur-sm p-3 border border-slate-200 shadow-xl rounded-lg min-w-[120px] z-50">
-          <p className="text-slate-500 text-xs font-medium mb-1 border-b border-slate-100 pb-1">{label}</p>
-          <div className="flex items-baseline gap-1 mt-1">
-             <span className="text-slate-400 text-xs font-semibold">USD</span>
-             <span className="text-sky-700 font-bold text-lg">
-               {typeof payload[0].value === 'number' 
-                 ? payload[0].value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) 
-                 : payload[0].value}
-             </span>
-          </div>
+        <div className="bg-white/95 backdrop-blur-sm p-3 border border-slate-200 shadow-xl rounded-lg min-w-[140px] z-50 text-xs">
+          <p className="text-slate-500 font-medium mb-2 border-b border-slate-100 pb-1">{label}</p>
+          
+          {chartType === 'area' ? (
+             <div className="flex items-baseline gap-1">
+                <span className="text-slate-400 font-semibold">Price</span>
+                <span className="text-sky-700 font-bold text-lg">
+                  {d.price.toFixed(2)}
+                </span>
+             </div>
+          ) : (
+             <div className="space-y-1.5">
+               <div className="flex justify-between items-center"><span className="text-slate-400 w-8">Open</span> <span className="font-mono font-medium text-slate-700">{d.open?.toFixed(2)}</span></div>
+               <div className="flex justify-between items-center"><span className="text-slate-400 w-8">High</span> <span className="font-mono font-medium text-emerald-600">{d.high?.toFixed(2)}</span></div>
+               <div className="flex justify-between items-center"><span className="text-slate-400 w-8">Low</span> <span className="font-mono font-medium text-rose-600">{d.low?.toFixed(2)}</span></div>
+               <div className="flex justify-between items-center border-t border-slate-100 pt-1 mt-1">
+                 <span className="text-slate-500 font-bold w-8">Close</span> 
+                 <span className={`font-mono font-bold ${d.close > d.open ? 'text-emerald-600' : 'text-rose-600'}`}>
+                   {d.close?.toFixed(2)}
+                 </span>
+               </div>
+             </div>
+          )}
         </div>
       );
     }
@@ -56,69 +123,72 @@ const StockChart: React.FC<StockChartProps> = ({ data, color = "#0ea5e9", annota
   };
 
   return (
-    <div className="h-80 w-full bg-white p-2 rounded-lg relative">
-      <ResponsiveContainer width="100%" height="100%">
-        <AreaChart
-          data={data}
-          margin={{ top: 10, right: 10, left: 0, bottom: 5 }}
+    <div className="h-80 w-full bg-white p-2 rounded-lg relative group">
+      {/* Chart Type Toggle */}
+      <div className="absolute top-2 right-4 z-10 flex bg-slate-100/90 backdrop-blur-sm rounded-lg p-1 shadow-sm border border-slate-200 opacity-60 group-hover:opacity-100 transition-opacity">
+        <button 
+           onClick={() => setChartType('area')}
+           className={`p-1.5 rounded-md transition-all ${chartType === 'area' ? 'bg-white shadow-sm text-sky-600 ring-1 ring-black/5' : 'text-slate-400 hover:text-slate-600'}`}
+           title="Line / Area View"
         >
-          <defs>
-            <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor={color} stopOpacity={0.3} />
-              <stop offset="95%" stopColor={color} stopOpacity={0} />
-            </linearGradient>
-          </defs>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-          <XAxis 
-            dataKey="time" 
-            tick={{ fontSize: 11, fill: '#64748b' }} 
-            axisLine={false}
-            tickLine={false}
-            minTickGap={35}
-            tickMargin={10}
-          />
-          <YAxis 
-            domain={[minPrice - padding, maxPrice + padding]} 
-            tick={{ fontSize: 11, fill: '#64748b' }} 
-            tickFormatter={(val) => val.toFixed(0)}
-            axisLine={false}
-            tickLine={false}
-            width={45}
-          />
-          <Tooltip content={<CustomTooltip />} />
-          <Area 
-            type="monotone" 
-            dataKey="price" 
-            stroke={color} 
-            strokeWidth={2}
-            fillOpacity={1} 
-            fill="url(#colorPrice)" 
-            animationDuration={800}
-            activeDot={{ r: 6, strokeWidth: 2, stroke: '#fff' }}
-          />
-          
-          {annotations.map((ann) => (
-             <ReferenceLine 
-                key={ann.id} 
-                y={ann.yAxisValue} 
-                stroke={ann.color || "#ef4444"} 
-                strokeDasharray="4 4" 
-                strokeWidth={2}
-                ifOverflow="extendDomain"
-             >
-                <Label value={ann.label} position="insideTopLeft" fill={ann.color || "#ef4444"} fontSize={10} />
-             </ReferenceLine>
-          ))}
+           <LineChart className="w-4 h-4" />
+        </button>
+        <button 
+           onClick={() => setChartType('candle')}
+           className={`p-1.5 rounded-md transition-all ${chartType === 'candle' ? 'bg-white shadow-sm text-sky-600 ring-1 ring-black/5' : 'text-slate-400 hover:text-slate-600'}`}
+           title="Candlestick View"
+        >
+           <CandlestickChart className="w-4 h-4" />
+        </button>
+      </div>
 
-          <Brush 
-            dataKey="time" 
-            height={25} 
-            stroke="#cbd5e1"
-            fill="#f8fafc"
-            tickFormatter={() => ''} 
-            travellerWidth={10}
-          />
-        </AreaChart>
+      <ResponsiveContainer width="100%" height="100%">
+        {chartType === 'area' ? (
+          <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 5 }}>
+            <defs>
+              <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor={color} stopOpacity={0.3} />
+                <stop offset="95%" stopColor={color} stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+            <XAxis dataKey="time" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} minTickGap={35} />
+            <YAxis domain={[minPrice - padding, maxPrice + padding]} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} width={45} tickFormatter={(val) => val.toFixed(0)} />
+            <Tooltip content={<CustomTooltip />} />
+            <Area type="monotone" dataKey="price" stroke={color} strokeWidth={2} fillOpacity={1} fill="url(#colorPrice)" animationDuration={500} />
+            {annotations.map((ann) => (
+              <ReferenceLine key={ann.id} y={ann.yAxisValue} stroke={ann.color || "#ef4444"} strokeDasharray="4 4">
+                <Label value={ann.label} position="insideTopLeft" fill={ann.color || "#ef4444"} fontSize={10} />
+              </ReferenceLine>
+            ))}
+            <Brush dataKey="time" height={15} stroke="#cbd5e1" fill="#f8fafc" tickFormatter={() => ''} />
+          </AreaChart>
+        ) : (
+          <ComposedChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 5 }}>
+             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+             <XAxis dataKey="time" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} minTickGap={35} />
+             <YAxis domain={[minPrice - padding, maxPrice + padding]} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} width={45} tickFormatter={(val) => val.toFixed(0)} />
+             <Tooltip content={<CustomTooltip />} cursor={{ strokeDasharray: '3 3', stroke: '#cbd5e1' }} />
+             
+             {/* Invisible Bars to ensure axis scaling covers the full range of High/Low without relying on the custom shape to drive layout */}
+             <Bar dataKey="high" fillOpacity={0} isAnimationActive={false} />
+             <Bar dataKey="low" fillOpacity={0} isAnimationActive={false} />
+             
+             {/* The actual Candle Shape */}
+             <Bar 
+               dataKey="close" 
+               shape={<CandleStickShape />} 
+               animationDuration={500}
+             />
+             
+             {annotations.map((ann) => (
+               <ReferenceLine key={ann.id} y={ann.yAxisValue} stroke={ann.color || "#ef4444"} strokeDasharray="4 4">
+                 <Label value={ann.label} position="insideTopLeft" fill={ann.color || "#ef4444"} fontSize={10} />
+               </ReferenceLine>
+             ))}
+             <Brush dataKey="time" height={15} stroke="#cbd5e1" fill="#f8fafc" tickFormatter={() => ''} />
+          </ComposedChart>
+        )}
       </ResponsiveContainer>
     </div>
   );

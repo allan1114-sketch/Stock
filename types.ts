@@ -34,7 +34,11 @@ export interface PredictionResponse {
 
 export interface ChartDataPoint {
   time: string;
-  price: number;
+  price: number; // Used for Area chart (usually close)
+  open?: number;
+  high?: number;
+  low?: number;
+  close?: number;
 }
 
 export interface ChartAnnotation {
@@ -113,4 +117,19 @@ export interface NewsItem {
 
 export interface NewsResponse {
   news: NewsItem[];
+}
+
+export interface CompanyMetrics {
+  marketCap: string;
+  peRatio: string;
+  dividendYield: string;
+}
+
+export type Language = 'zh-Hant' | 'en';
+
+export interface AssetAllocation {
+  id: string;
+  name: string;
+  value: number; // Percentage
+  color: string;
 }

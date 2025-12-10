@@ -3,12 +3,14 @@ import { TrendingUp, Loader2 } from 'lucide-react';
 import { IndexInfo, LoadingStatus } from '../types';
 import { GeminiService } from '../services/geminiService';
 import { parsePrice } from '../utils';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface IndexCardProps {
   info: IndexInfo;
 }
 
 const IndexCard: React.FC<IndexCardProps> = ({ info }) => {
+  const { language } = useLanguage();
   const [status, setStatus] = useState<LoadingStatus>(LoadingStatus.IDLE);
   const [priceData, setPriceData] = useState<string>('---');
   const [ma50Data, setMa50Data] = useState<string>('---');
@@ -16,21 +18,21 @@ const IndexCard: React.FC<IndexCardProps> = ({ info }) => {
   const fetchData = async () => {
     if (status === LoadingStatus.LOADING) return;
     setStatus(LoadingStatus.LOADING);
-    setPriceData('載入中...');
-    setMa50Data('載入中...');
+    setPriceData(language === 'zh-Hant' ? '載入中...' : 'Loading...');
+    setMa50Data(language === 'zh-Hant' ? '載入中...' : 'Loading...');
 
     try {
       const [priceRes, ma50Res] = await Promise.all([
-        GeminiService.fetchPrice(info.queryName),
-        GeminiService.fetchMA50(info.queryName)
+        GeminiService.fetchPrice(info.queryName, language),
+        GeminiService.fetchMA50(info.queryName, language)
       ]);
 
       setPriceData(priceRes.text);
       setMa50Data(ma50Res.text);
       setStatus(LoadingStatus.SUCCESS);
     } catch (e) {
-      setPriceData('API 錯誤');
-      setMa50Data('API 錯誤');
+      setPriceData(language === 'zh-Hant' ? 'API 錯誤' : 'API Error');
+      setMa50Data(language === 'zh-Hant' ? 'API 錯誤' : 'API Error');
       setStatus(LoadingStatus.ERROR);
     }
   };
@@ -64,19 +66,19 @@ const IndexCard: React.FC<IndexCardProps> = ({ info }) => {
           ) : (
             <TrendingUp className="w-3 h-3 mr-1" />
           )}
-          查詢
+          {language === 'zh-Hant' ? '查詢' : 'Update'}
         </button>
       </div>
       <p className="text-sm text-slate-500 mb-2">{info.description}</p>
       <div className="mt-3 text-sm text-slate-700 border-t pt-2 border-slate-200">
         <div className="flex justify-between items-center">
-          <span className="text-slate-600">最新價位:</span>
+          <span className="text-slate-600">{language === 'zh-Hant' ? '最新價位:' : 'Price:'}</span>
           <span className={`text-xl font-extrabold ${getPriceColor(priceData)}`}>
             {priceData}
           </span>
         </div>
         <div className="flex justify-between items-center mt-1">
-          <span className="text-slate-500">50 天線:</span>
+          <span className="text-slate-500">{language === 'zh-Hant' ? '50 天線:' : 'MA50:'}</span>
           <span className={`text-base font-medium ${maColor}`}>
             {ma50Data}
           </span>
