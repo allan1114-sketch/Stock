@@ -126,6 +126,14 @@ export interface CompanyMetrics {
 }
 
 export type Language = 'zh-Hant' | 'en';
+export type Theme = 'light' | 'dark';
+
+export interface AppSettings {
+  language: Language;
+  theme: Theme;
+  notificationsEnabled: boolean;
+  hasSeenOnboarding: boolean;
+}
 
 export interface AssetAllocation {
   id: string;

@@ -416,5 +416,27 @@ export const GeminiService = {
     } catch (e) {
         return null;
     }
+  },
+
+  async generateLogo(companyName: string): Promise<string> {
+    const prompt = `A modern, minimalist, vector-style logo for the company "${companyName}". White background.`;
+    try {
+       const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash-image',
+        contents: {
+          parts: [{ text: prompt }]
+        }
+      });
+      // Iterate to find image part
+      for (const part of response.candidates?.[0]?.content?.parts || []) {
+        if (part.inlineData) {
+          return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+        }
+      }
+      return '';
+    } catch (e) {
+      console.error("Logo generation failed", e);
+      return '';
+    }
   }
 };

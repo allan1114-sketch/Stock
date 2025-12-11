@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { AssetAllocation } from '../types';
-import { useLanguage } from '../contexts/LanguageContext';
+import { useSettings } from '../contexts/LanguageContext';
 import { PieChart as PieIcon, Plus, Trash2 } from 'lucide-react';
 
 const COLORS = ['#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
 const PortfolioSimulator: React.FC = () => {
-  const { t } = useLanguage();
+  const { t } = useSettings();
   const [assets, setAssets] = useState<AssetAllocation[]>([
     { id: '1', name: 'Stocks', value: 60, color: COLORS[0] },
     { id: '2', name: 'Bonds', value: 30, color: COLORS[1] },
@@ -35,9 +35,9 @@ const PortfolioSimulator: React.FC = () => {
   };
 
   return (
-    <div className="bg-white p-6 rounded-xl shadow-md border border-slate-200">
-      <h3 className="text-xl font-bold text-slate-700 mb-4 flex items-center">
-        <PieIcon className="w-5 h-5 mr-2 text-violet-600" />
+    <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-md border border-slate-200 dark:border-slate-700 transition-colors">
+      <h3 className="text-xl font-bold text-slate-700 dark:text-slate-200 mb-4 flex items-center">
+        <PieIcon className="w-5 h-5 mr-2 text-violet-600 dark:text-violet-400" />
         {t('portfolio.title')}
       </h3>
 
@@ -54,17 +54,18 @@ const PortfolioSimulator: React.FC = () => {
                 outerRadius={80}
                 paddingAngle={5}
                 dataKey="value"
+                stroke="none"
               >
                 {assets.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.color} />
                 ))}
               </Pie>
-              <Tooltip formatter={(value: number) => `${value}%`} />
+              <Tooltip formatter={(value: number) => `${value}%`} contentStyle={{borderRadius: '8px', border: 'none'}} />
               <Legend />
             </PieChart>
           </ResponsiveContainer>
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center">
-             <span className={`text-xl font-bold ${total === 100 ? 'text-emerald-500' : 'text-slate-400'}`}>
+             <span className={`text-xl font-bold ${total === 100 ? 'text-emerald-500' : 'text-slate-400 dark:text-slate-500'}`}>
                  {total}%
              </span>
           </div>
@@ -78,9 +79,9 @@ const PortfolioSimulator: React.FC = () => {
                  placeholder="New Asset Class..." 
                  value={newAssetName}
                  onChange={e => setNewAssetName(e.target.value)}
-                 className="border rounded px-2 py-1 flex-1 text-sm"
+                 className="border border-slate-300 dark:border-slate-600 rounded px-2 py-1 flex-1 text-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
               />
-              <button onClick={handleAdd} className="bg-slate-800 text-white p-1 rounded hover:bg-slate-700">
+              <button onClick={handleAdd} className="bg-slate-800 hover:bg-slate-700 text-white p-1 rounded transition-colors">
                  <Plus className="w-4 h-4" />
               </button>
            </div>
@@ -89,15 +90,15 @@ const PortfolioSimulator: React.FC = () => {
              {assets.map((asset) => (
                <div key={asset.id} className="flex items-center gap-2 text-sm">
                   <div className="w-3 h-3 rounded-full" style={{ backgroundColor: asset.color }}></div>
-                  <span className="flex-1 font-medium text-slate-700">{asset.name}</span>
+                  <span className="flex-1 font-medium text-slate-700 dark:text-slate-300">{asset.name}</span>
                   <input 
                     type="number" 
                     value={asset.value} 
                     onChange={(e) => handleValueChange(asset.id, e.target.value)}
-                    className="w-16 border rounded px-1 text-right"
+                    className="w-16 border border-slate-300 dark:border-slate-600 rounded px-1 text-right bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
                   />
-                  <span className="text-slate-500">%</span>
-                  <button onClick={() => handleRemove(asset.id)} className="text-slate-400 hover:text-red-500">
+                  <span className="text-slate-500 dark:text-slate-400">%</span>
+                  <button onClick={() => handleRemove(asset.id)} className="text-slate-400 hover:text-red-500 dark:hover:text-red-400">
                      <Trash2 className="w-4 h-4" />
                   </button>
                </div>
@@ -105,7 +106,7 @@ const PortfolioSimulator: React.FC = () => {
            </div>
            
            {total !== 100 && (
-               <p className="text-xs text-rose-500 mt-2 text-right">Total must equal 100% (Current: {total}%)</p>
+               <p className="text-xs text-rose-500 dark:text-rose-400 mt-2 text-right">Total must equal 100% (Current: {total}%)</p>
            )}
         </div>
       </div>

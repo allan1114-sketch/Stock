@@ -7,14 +7,15 @@ import StockCard from './components/StockCard';
 import PortfolioSimulator from './components/PortfolioSimulator';
 import FadeInSection from './components/FadeInSection';
 import NotificationToast from './components/NotificationToast';
+import OnboardingTour from './components/OnboardingTour';
 import { StockInfo, NotificationMsg } from './types';
 import { GeminiService } from './services/geminiService';
-import { SearchX, Star, Info, GripVertical, ArrowUp, ArrowDown } from 'lucide-react';
-import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
+import { SearchX, Star, Info, GripVertical, ArrowUp, ArrowDown, Trash2 } from 'lucide-react';
+import { LanguageProvider, useSettings } from './contexts/LanguageContext';
 
 // Inner component to use the context
 const AppContent: React.FC = () => {
-  const { t } = useLanguage();
+  const { t } = useSettings();
   const [searchResult, setSearchResult] = useState<StockInfo | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState('');
@@ -52,6 +53,13 @@ const AppContent: React.FC = () => {
         setWatchlist(prev => [...prev, stock]);
         addNotification('Added', `${stock.name} added to watchlist`, 'success');
     }
+  };
+
+  const clearWatchlist = () => {
+      if (confirm('Clear entire watchlist?')) {
+          setWatchlist([]);
+          addNotification('Cleared', 'Watchlist cleared', 'info');
+      }
   };
 
   const handleSearch = async (query: string) => {
@@ -133,8 +141,8 @@ const AppContent: React.FC = () => {
   const renderSection = (id: string, index: number) => {
       const moveControls = isEditingLayout ? (
           <div className="flex justify-end mb-2 gap-1 animate-pulse">
-              <button onClick={() => moveSection(index, 'up')} disabled={index === 0} className="p-1 bg-slate-200 rounded hover:bg-slate-300 disabled:opacity-30"><ArrowUp className="w-4 h-4"/></button>
-              <button onClick={() => moveSection(index, 'down')} disabled={index === sectionOrder.length - 1} className="p-1 bg-slate-200 rounded hover:bg-slate-300 disabled:opacity-30"><ArrowDown className="w-4 h-4"/></button>
+              <button onClick={() => moveSection(index, 'up')} disabled={index === 0} className="p-1 bg-slate-200 dark:bg-slate-700 rounded hover:bg-slate-300 dark:hover:bg-slate-600 disabled:opacity-30"><ArrowUp className="w-4 h-4 dark:text-slate-200"/></button>
+              <button onClick={() => moveSection(index, 'down')} disabled={index === sectionOrder.length - 1} className="p-1 bg-slate-200 dark:bg-slate-700 rounded hover:bg-slate-300 dark:hover:bg-slate-600 disabled:opacity-30"><ArrowDown className="w-4 h-4 dark:text-slate-200"/></button>
           </div>
       ) : null;
 
@@ -143,7 +151,9 @@ const AppContent: React.FC = () => {
               return (
                   <FadeInSection key="macro" delay={100} className="mb-12">
                       {moveControls}
-                      <MacroSection />
+                      <div id="tour-macro">
+                        <MacroSection />
+                      </div>
                   </FadeInSection>
               );
           case 'watchlist':
@@ -151,11 +161,16 @@ const AppContent: React.FC = () => {
               return (
                 <FadeInSection key="watchlist" delay={200} className="mb-12">
                     {moveControls}
-                    <section>
-                        <h2 className="text-2xl font-bold text-slate-700 mb-6 flex items-center pb-2 border-b-2 border-yellow-400">
-                            <Star className="w-6 h-6 mr-2 text-yellow-500 fill-yellow-500" />
-                            {t('watchlist.title')}
-                        </h2>
+                    <section id="tour-watchlist">
+                        <div className="flex justify-between items-end mb-6 pb-2 border-b-2 border-yellow-400">
+                            <h2 className="text-2xl font-bold text-slate-700 dark:text-slate-200 flex items-center">
+                                <Star className="w-6 h-6 mr-2 text-yellow-500 fill-yellow-500" />
+                                {t('watchlist.title')}
+                            </h2>
+                            <button onClick={clearWatchlist} className="text-xs text-slate-400 hover:text-red-500 flex items-center transition-colors pb-1">
+                                <Trash2 className="w-3 h-3 mr-1" /> Clear
+                            </button>
+                        </div>
                         <div className="space-y-8">
                             {watchlist.map((stock, i) => (
                                 <StockCard 
@@ -178,7 +193,9 @@ const AppContent: React.FC = () => {
               return (
                   <FadeInSection key="portfolio" delay={300} className="mb-12">
                       {moveControls}
-                      <PortfolioSimulator />
+                      <div id="tour-portfolio">
+                        <PortfolioSimulator />
+                      </div>
                   </FadeInSection>
               );
           case 'stock':
@@ -193,16 +210,19 @@ const AppContent: React.FC = () => {
   };
 
   return (
-    <div className="p-4 sm:p-8 min-h-screen relative bg-slate-50">
+    <div className="p-4 sm:p-8 min-h-screen relative bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
+      <OnboardingTour />
       <NotificationToast notifications={notifications} onClose={removeNotification} />
 
-      <div className="max-w-7xl mx-auto bg-white border border-slate-200 p-6 sm:p-10 rounded-xl shadow-2xl">
+      <div className="max-w-7xl mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 sm:p-10 rounded-xl shadow-2xl transition-colors duration-300">
         <Header isEditingLayout={isEditingLayout} onToggleEditLayout={() => setIsEditingLayout(!isEditingLayout)} />
         
-        <SearchBar onSearch={handleSearch} isLoading={isSearching} />
+        <div id="tour-search">
+            <SearchBar onSearch={handleSearch} isLoading={isSearching} />
+        </div>
         
         {searchError && (
-            <div className="mb-8 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg flex items-center justify-center">
+            <div className="mb-8 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 rounded-lg flex items-center justify-center">
                 <SearchX className="w-5 h-5 mr-2" />
                 {searchError}
             </div>
@@ -210,8 +230,8 @@ const AppContent: React.FC = () => {
 
         {searchResult && (
             <div className="mb-12">
-                <div className="flex justify-between items-end mb-6 border-b-2 border-sky-300 pb-2">
-                    <h2 className="text-2xl font-bold text-sky-800">Search Result</h2>
+                <div className="flex justify-between items-end mb-6 border-b-2 border-sky-300 dark:border-sky-700 pb-2">
+                    <h2 className="text-2xl font-bold text-sky-800 dark:text-sky-300">Search Result</h2>
                 </div>
                 <StockCard 
                   key={searchResult.symbol} 
@@ -227,7 +247,7 @@ const AppContent: React.FC = () => {
             {sectionOrder.map((id, index) => renderSection(id, index))}
         </main>
         
-        <footer className="mt-12 pt-6 border-t-2 border-slate-200 bg-slate-50 text-center text-sm text-slate-400 rounded-b-lg pb-4">
+        <footer className="mt-12 pt-6 border-t-2 border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-center text-sm text-slate-400 rounded-b-lg pb-4">
           <p>Data powered by Google Search API & Gemini AI. For reference only.</p>
         </footer>
       </div>

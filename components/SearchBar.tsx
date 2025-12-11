@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Search, Loader2 } from 'lucide-react';
+import { useSettings } from '../contexts/LanguageContext';
 
 interface SearchBarProps {
   onSearch: (query: string) => void;
@@ -7,6 +8,7 @@ interface SearchBarProps {
 }
 
 const SearchBar: React.FC<SearchBarProps> = ({ onSearch, isLoading }) => {
+  const { t } = useSettings();
   const [query, setQuery] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -28,8 +30,8 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch, isLoading }) => {
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder={isBatch ? "多個代號搜尋: AAPL, MSFT, TSLA" : "輸入股票代號或公司名稱 (例如: NVDA, Tesla)..."}
-          className="w-full px-5 py-4 pl-14 text-lg rounded-xl border-2 border-slate-200 bg-white focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none transition-all shadow-sm group-hover:shadow-md"
+          placeholder={isBatch ? t('search.batch') : t('search.placeholder')}
+          className="w-full px-5 py-4 pl-14 text-lg rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:border-sky-500 focus:ring-4 focus:ring-sky-100 dark:focus:ring-sky-900/30 outline-none transition-all shadow-sm group-hover:shadow-md dark:shadow-none placeholder:text-slate-400 dark:placeholder:text-slate-500"
           disabled={isLoading}
         />
         <div className="absolute right-3">
@@ -41,10 +43,10 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch, isLoading }) => {
             {isLoading ? (
                 <>
                 <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                {isBatch ? '批量處理' : '搜尋中'}
+                {t('search.searching')}
                 </>
             ) : (
-                isBatch ? '批量加入' : '搜尋'
+                t('search.button')
             )}
             </button>
         </div>
