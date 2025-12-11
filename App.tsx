@@ -25,6 +25,9 @@ const AppContent: React.FC = () => {
   const [isEditingLayout, setIsEditingLayout] = useState(false);
   const [sectionOrder, setSectionOrder] = useState<string[]>(['macro', 'watchlist', 'portfolio', 'stock']);
   
+  // Scroll to Top State
+  const [showScrollTop, setShowScrollTop] = useState(false);
+
   const [watchlist, setWatchlist] = useState<StockInfo[]>(() => {
     try {
         const saved = localStorage.getItem('financial_dashboard_watchlist');
@@ -35,6 +38,24 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('financial_dashboard_watchlist', JSON.stringify(watchlist));
   }, [watchlist]);
+
+  // Scroll Listener
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 300) {
+        setShowScrollTop(true);
+      } else {
+        setShowScrollTop(false);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const addNotification = (title: string, message: string, type: 'success' | 'alert' | 'info' = 'info') => {
     setNotifications(prev => [...prev, { id: Date.now(), title, message, type }]);
@@ -251,6 +272,15 @@ const AppContent: React.FC = () => {
           <p>Data powered by Google Search API & Gemini AI. For reference only.</p>
         </footer>
       </div>
+
+      {/* Go to Top Button */}
+      <button
+        onClick={scrollToTop}
+        className={`fixed bottom-8 right-8 z-40 p-3 rounded-full shadow-xl bg-sky-600 text-white hover:bg-sky-700 hover:-translate-y-1 transition-all duration-300 transform ${showScrollTop ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0 pointer-events-none'}`}
+        aria-label="Scroll to top"
+      >
+        <ArrowUp className="w-6 h-6" />
+      </button>
     </div>
   );
 };
