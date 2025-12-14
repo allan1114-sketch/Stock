@@ -22,6 +22,19 @@ const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 const MODEL_NAME = 'gemini-2.5-flash';
 
 /**
+ * Centralized Error Handler
+ */
+function handleGeminiError(error: any): never {
+  console.error("Gemini API Error:", error);
+  const msg = error?.message || error?.toString() || "";
+  
+  if (msg.includes("429") || msg.includes("quota") || msg.includes("limit") || msg.includes("resource exhausted")) {
+    throw new Error("QUOTA_EXCEEDED");
+  }
+  throw new Error("API_ERROR");
+}
+
+/**
  * Generic function to fetch content from Gemini with Google Search Grounding.
  */
 async function fetchFromGemini(prompt: string, systemInstruction: string, model: string = MODEL_NAME): Promise<GeminiResponse> {
@@ -56,8 +69,7 @@ async function fetchFromGemini(prompt: string, systemInstruction: string, model:
       sources: uniqueSources.slice(0, 3), // Limit to top 3 sources
     };
   } catch (error) {
-    console.error("Gemini API Error:", error);
-    throw new Error("API request failed.");
+    handleGeminiError(error);
   }
 }
 
@@ -121,7 +133,7 @@ export const GeminiService = {
       }
       return { marketCap: "N/A", peRatio: "N/A", dividendYield: "N/A" };
     } catch(e) {
-      return { marketCap: "N/A", peRatio: "N/A", dividendYield: "N/A" };
+      handleGeminiError(e);
     }
   },
 
@@ -143,7 +155,7 @@ export const GeminiService = {
             data.rsi = data.rsi.value || JSON.stringify(data.rsi);
         }
 
-        // Safety check for MACD (Fix for React Error #31)
+        // Safety check for MACD
         if (data && typeof data.macd === 'object') {
             const m = data.macd;
             if (m.status && typeof m.status === 'string') {
@@ -162,7 +174,7 @@ export const GeminiService = {
       }
       throw new Error("No data");
     } catch(e) {
-      return { rsi: "N/A", macd: "N/A" };
+      handleGeminiError(e);
     }
   },
 
@@ -179,7 +191,7 @@ export const GeminiService = {
       if (response.text) return cleanAndParseJSON(response.text) as ExtendedQuote;
       throw new Error("No data");
     } catch (e) {
-      throw new Error("Failed to fetch extended quote");
+      handleGeminiError(e);
     }
   },
 
@@ -208,14 +220,12 @@ export const GeminiService = {
       if (response.text) {
         let data = cleanAndParseJSON(response.text);
 
-        // --- Fix for Minified React Error #31 ---
-        // Ensure summary is a string, even if AI returns a structured object matching the "Requirements"
+        // Fix for summary format
         if (data && typeof data.summary === 'object') {
              data.summary = Object.entries(data.summary)
                 .map(([key, val]) => `• ${key}: ${val}`)
                 .join('\n');
         } 
-        // Handle case where AI ignores the "summary" key completely and returns a flat object
         else if (data && typeof data === 'object' && !data.summary) {
              const summaryKeys = ['主要驅動因素', '近期新聞', '展望', 'Primary driver', 'Recent news', 'Outlook'];
              const hasSummaryKeys = Object.keys(data).some(k => summaryKeys.some(sk => k.includes(sk)));
@@ -234,7 +244,6 @@ export const GeminiService = {
              }
         }
         
-        // Final fallback: Ensure summary is a primitive string
         if (data && typeof data.summary !== 'string') {
             data.summary = JSON.stringify(data.summary || "");
         }
@@ -243,7 +252,7 @@ export const GeminiService = {
       }
       throw new Error("Empty response");
     } catch (e) {
-      throw new Error("Failed to fetch summary");
+      handleGeminiError(e);
     }
   },
 
@@ -260,7 +269,7 @@ export const GeminiService = {
       if (response.text) return cleanAndParseJSON(response.text) as NewsResponse;
       throw new Error("No news data");
     } catch (e) {
-       return { news: [] };
+       handleGeminiError(e);
     }
   },
 
@@ -275,7 +284,7 @@ export const GeminiService = {
       if (response.text) return cleanAndParseJSON(response.text) as AnalystRating;
       return null;
     } catch (e) {
-      return null;
+      handleGeminiError(e);
     }
   },
 
@@ -285,7 +294,7 @@ export const GeminiService = {
 
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-3-pro-preview',
+            model: MODEL_NAME,
             contents: query,
             config: {
                 tools: [{ googleSearch: {} }],
@@ -304,7 +313,7 @@ export const GeminiService = {
         }
         throw new Error("Prediction failed");
     } catch (e) {
-        throw new Error("Failed to predict");
+        handleGeminiError(e);
     }
   },
 
@@ -328,7 +337,7 @@ export const GeminiService = {
     ? "You are a top-tier Macro Strategist. Provide data-heavy analysis. Cite specific numbers."
     : "You are a top-tier Wall Street Macro Strategist. Provide a data-heavy, professional market analysis. Use Traditional Chinese.";
     
-    return fetchFromGemini(query, systemPrompt, 'gemini-3-pro-preview');
+    return fetchFromGemini(query, systemPrompt, MODEL_NAME);
   },
 
   async fetchStockHistory(companyName: string, range: '1D' | '1W' | '1M' | '3M'): Promise<ChartResponse> {
@@ -379,7 +388,7 @@ export const GeminiService = {
 
       return { data, sources: uniqueSources.slice(0, 3) };
     } catch (error) {
-      throw new Error("Chart Data Error");
+      handleGeminiError(error);
     }
   },
 

@@ -31,9 +31,14 @@ const IndexCard: React.FC<IndexCardProps> = ({ info }) => {
       setPriceData(priceRes.text);
       setMa50Data(ma50Res.text);
       setStatus(LoadingStatus.SUCCESS);
-    } catch (e) {
-      setPriceData(language === 'zh-Hant' ? 'API 錯誤' : 'API Error');
-      setMa50Data(language === 'zh-Hant' ? 'API 錯誤' : 'API Error');
+    } catch (e: any) {
+      if (e.message === 'QUOTA_EXCEEDED') {
+          setPriceData('Quota Limit');
+          setMa50Data('Quota Limit');
+      } else {
+          setPriceData(language === 'zh-Hant' ? 'API 錯誤' : 'API Error');
+          setMa50Data(language === 'zh-Hant' ? 'API 錯誤' : 'API Error');
+      }
       setStatus(LoadingStatus.ERROR);
     }
   };
@@ -41,6 +46,7 @@ const IndexCard: React.FC<IndexCardProps> = ({ info }) => {
   const getPriceColor = (text: string) => {
     if (text.includes('+')) return 'text-emerald-500 dark:text-emerald-400';
     if (text.includes('-')) return 'text-red-500 dark:text-red-400';
+    if (text.includes('Quota') || text.includes('Error')) return 'text-amber-500 dark:text-amber-400 text-sm';
     return 'text-slate-700 dark:text-slate-200';
   };
 
@@ -51,6 +57,8 @@ const IndexCard: React.FC<IndexCardProps> = ({ info }) => {
   if (priceNum !== null && ma50Num !== null) {
       if (priceNum > ma50Num) maColor = 'text-emerald-600 dark:text-emerald-400 font-bold';
       else if (priceNum < ma50Num) maColor = 'text-rose-600 dark:text-rose-400 font-bold';
+  } else if (ma50Data.includes('Quota') || ma50Data.includes('Error')) {
+      maColor = 'text-amber-500 dark:text-amber-400 text-xs';
   }
 
   return (

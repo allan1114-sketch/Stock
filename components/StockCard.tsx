@@ -85,6 +85,12 @@ const StockCard: React.FC<StockCardProps> = ({ stock, onNotify, isWatched, onTog
   const sentimentConfig = sentiment ? getSentimentConfig(sentiment.label) : null;
   const SentimentIcon = sentimentConfig?.icon;
 
+  const handleQuotaError = (e: any) => {
+    if (e.message === 'QUOTA_EXCEEDED') {
+      onNotify('API Quota Exceeded', 'You have hit the daily/rate limit for the Gemini API. Please wait.', 'alert');
+    }
+  };
+
   // --- Auto-Fetch on Mount ---
   useEffect(() => {
     let mounted = true;
@@ -102,6 +108,7 @@ const StockCard: React.FC<StockCardProps> = ({ stock, onNotify, isWatched, onTog
             if (mounted) setMetrics(mRes);
         } catch (e) {
             console.error("Init fetch failed", e);
+            handleQuotaError(e);
         }
     };
 
@@ -152,9 +159,10 @@ const StockCard: React.FC<StockCardProps> = ({ stock, onNotify, isWatched, onTog
             setCompStatus(LoadingStatus.ERROR);
             setCompChartStatus(LoadingStatus.ERROR);
         }
-    } catch {
+    } catch (e) {
         setCompStatus(LoadingStatus.ERROR);
         setCompChartStatus(LoadingStatus.ERROR);
+        handleQuotaError(e);
     }
   };
 
@@ -185,8 +193,9 @@ const StockCard: React.FC<StockCardProps> = ({ stock, onNotify, isWatched, onTog
       setTechIndicators(tRes);
       setMetrics(metricRes);
       setDataStatus(LoadingStatus.SUCCESS);
-    } catch {
+    } catch (e) {
       setDataStatus(LoadingStatus.ERROR);
+      handleQuotaError(e);
     }
   };
 
@@ -200,7 +209,10 @@ const StockCard: React.FC<StockCardProps> = ({ stock, onNotify, isWatched, onTog
       setSentiment({ label: res.data.sentiment, score: res.data.score });
       setSummarySources(res.sources);
       setSummaryStatus(LoadingStatus.SUCCESS);
-    } catch { setSummaryStatus(LoadingStatus.ERROR); }
+    } catch (e) { 
+      setSummaryStatus(LoadingStatus.ERROR);
+      handleQuotaError(e);
+    }
   };
 
   const fetchView = async () => {
@@ -216,7 +228,10 @@ const StockCard: React.FC<StockCardProps> = ({ stock, onNotify, isWatched, onTog
       setViewSources(res.sources);
       setAnalystRating(rating);
       setViewStatus(LoadingStatus.SUCCESS);
-    } catch { setViewStatus(LoadingStatus.ERROR); }
+    } catch (e) { 
+      setViewStatus(LoadingStatus.ERROR);
+      handleQuotaError(e);
+    }
   };
 
   const fetchPrediction = async () => {
@@ -227,7 +242,10 @@ const StockCard: React.FC<StockCardProps> = ({ stock, onNotify, isWatched, onTog
           const res = await GeminiService.fetchPricePrediction(stock.queryName, language);
           setPrediction(res.data);
           setPredictStatus(LoadingStatus.SUCCESS);
-      } catch { setPredictStatus(LoadingStatus.ERROR); }
+      } catch (e) { 
+        setPredictStatus(LoadingStatus.ERROR);
+        handleQuotaError(e);
+      }
   };
 
   const toggleNews = async () => {
@@ -239,7 +257,10 @@ const StockCard: React.FC<StockCardProps> = ({ stock, onNotify, isWatched, onTog
               const res = await GeminiService.fetchCompanyNews(stock.queryName, language);
               setNewsList(res.news);
               setNewsStatus(LoadingStatus.SUCCESS);
-          } catch { setNewsStatus(LoadingStatus.ERROR); }
+          } catch (e) { 
+            setNewsStatus(LoadingStatus.ERROR);
+            handleQuotaError(e);
+          }
       }
   };
 
