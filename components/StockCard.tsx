@@ -8,6 +8,7 @@ import { StockInfo, LoadingStatus, Source, PriceAlert, AlertType, PredictionData
 import { GeminiService } from '../services/geminiService';
 import { parsePrice, parseMetric } from '../utils';
 import { useSettings } from '../contexts/LanguageContext';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid } from 'recharts';
 
 interface StockCardProps {
   stock: StockInfo;
@@ -51,6 +52,8 @@ const StockCard: React.FC<StockCardProps> = ({ stock, onNotify, isWatched, onTog
   const [compPrice, setCompPrice] = useState<string>('---');
   const [compMetrics, setCompMetrics] = useState<CompanyMetrics | null>(null);
   const [compStatus, setCompStatus] = useState<LoadingStatus>(LoadingStatus.IDLE);
+  const [compChartData, setCompChartData] = useState<any[]>([]);
+  const [compChartStatus, setCompChartStatus] = useState<LoadingStatus>(LoadingStatus.IDLE);
 
   // Other States (Summary, View, Prediction, News)
   const [summaryStatus, setSummaryStatus] = useState<LoadingStatus>(LoadingStatus.IDLE);
@@ -126,25 +129,32 @@ const StockCard: React.FC<StockCardProps> = ({ stock, onNotify, isWatched, onTog
     if (e) e.preventDefault();
     if (!compQuery.trim()) return;
     setCompStatus(LoadingStatus.LOADING);
+    setCompChartStatus(LoadingStatus.LOADING);
     try {
         const stockInfo = await GeminiService.resolveStockQuery(compQuery);
         if (stockInfo) {
             setCompStock(stockInfo);
             // Fetch data
-             const [pRes, metricRes] = await Promise.all([
+             const [pRes, metricRes, chartRes] = await Promise.all([
                 GeminiService.fetchPrice(stockInfo.queryName, language),
-                GeminiService.fetchCompanyMetrics(stockInfo.queryName)
+                GeminiService.fetchCompanyMetrics(stockInfo.queryName),
+                GeminiService.fetchComparisonChart(stock.name, stockInfo.name)
             ]);
             setCompPrice(pRes.text);
             setCompMetrics(metricRes);
+            setCompChartData(chartRes);
+
             setCompStatus(LoadingStatus.SUCCESS);
+            setCompChartStatus(LoadingStatus.SUCCESS);
             setShowCompareInput(false);
         } else {
             onNotify('Not Found', 'Could not find stock', 'alert');
             setCompStatus(LoadingStatus.ERROR);
+            setCompChartStatus(LoadingStatus.ERROR);
         }
     } catch {
         setCompStatus(LoadingStatus.ERROR);
+        setCompChartStatus(LoadingStatus.ERROR);
     }
   };
 
@@ -152,6 +162,7 @@ const StockCard: React.FC<StockCardProps> = ({ stock, onNotify, isWatched, onTog
     setCompStock(null);
     setCompPrice('---');
     setCompMetrics(null);
+    setCompChartData([]);
     setCompQuery('');
   };
 
@@ -387,6 +398,26 @@ const StockCard: React.FC<StockCardProps> = ({ stock, onNotify, isWatched, onTog
                     {renderComparisonRow(t('label.peRatio'), metrics?.peRatio || '-', compMetrics?.peRatio || '-', 'number')}
                     {renderComparisonRow(t('label.dividend'), metrics?.dividendYield || '-', compMetrics?.dividendYield || '-', 'number')}
                     
+                    {/* Comparison Chart */}
+                    {compChartData.length > 0 && (
+                      <div className="h-40 mt-4 -mx-2 bg-white dark:bg-slate-900/40 rounded-lg border border-slate-100 dark:border-slate-700/50 p-2">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={compChartData}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                            <XAxis dataKey="day" tick={{fontSize: 10}} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+                            <YAxis hide domain={['auto', 'auto']} />
+                            <Tooltip 
+                                contentStyle={{borderRadius: '8px', fontSize: '12px'}}
+                                formatter={(val: number) => [`${val > 0 ? '+' : ''}${val}%`, 'Change']}
+                            />
+                            <Legend wrapperStyle={{fontSize: '10px', paddingTop: '5px'}} iconType="circle" />
+                            <Line type="monotone" dataKey="s1" name={stock.symbol} stroke="#64748b" strokeWidth={2} dot={false} activeDot={{r: 4}} />
+                            <Line type="monotone" dataKey="s2" name={compStock.symbol} stroke="#6366f1" strokeWidth={2} dot={false} activeDot={{r: 4}} />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+
                     <button 
                        onClick={clearCompare} 
                        className="w-full mt-4 flex items-center justify-center gap-2 py-2 text-xs font-bold text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors border border-dashed border-rose-200 dark:border-rose-800"

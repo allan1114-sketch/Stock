@@ -383,6 +383,27 @@ export const GeminiService = {
     }
   },
 
+  async fetchComparisonChart(name1: string, name2: string): Promise<any[]> {
+    const query = `Generate a JSON dataset comparing the daily percentage change of "${name1}" (s1) and "${name2}" (s2) over the past 5 trading days.
+    Output strictly raw JSON.
+    Format: [{"day": "string (e.g. M-D)", "s1": number, "s2": number}]`;
+
+    try {
+      const response = await ai.models.generateContent({
+        model: MODEL_NAME,
+        contents: query,
+        config: { tools: [{ googleSearch: {} }] }
+      });
+      if (response.text) {
+        return cleanAndParseJSON(response.text);
+      }
+      return [];
+    } catch (e) {
+      console.error("Comparison chart failed", e);
+      return [];
+    }
+  },
+
   async resolveStockQuery(userQuery: string): Promise<StockInfo | null> {
     const prompt = `Identify public company/index for: "${userQuery}".
     Return JSON: {"name": "Full Name (Ticker)", "symbol": "TICKER", "description": "Short Industry Desc", "queryName": "Search Optimized Name"}.

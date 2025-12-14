@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>專業金融儀表板與技術分析</title>
+    <!-- Using Tailwind CDN for simplicity in this refined setup. For production, a PostCSS setup is recommended but this works for Vercel/GH Pages. -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -48,19 +49,21 @@
   <script type="importmap">
 {
   "imports": {
-    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0",
-    "react/": "https://aistudiocdn.com/react@^19.2.1/",
-    "react": "https://aistudiocdn.com/react@^19.2.1",
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.31.0",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
-    "react-dom": "https://aistudiocdn.com/react-dom@^19.2.1",
-    "recharts": "https://esm.sh/recharts@2.12.7?external=react,react-dom"
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "lucide-react": "https://esm.sh/lucide-react@^0.561.0",
+    "@google/genai": "https://esm.sh/@google/genai@^1.33.0",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
+    "vite": "https://esm.sh/vite@^7.2.7",
+    "recharts": "https://esm.sh/recharts@^3.5.1",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3"
   }
 }
 </script>
 </head>
   <body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 transition-colors duration-300">
     <div id="root"></div>
-    <script type="module" src="./index.tsx"></script>
+    <!-- Vite entry point must start with / -->
+    <script type="module" src="/index.tsx"></script>
   </body>
 </html>
