@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Activity, Newspaper, TrendingUp, Server, ClipboardList, Layers, Loader2,
   Bell, BellRing, Star, Download, BrainCircuit, PenTool, Trash2, ChevronDown, ChevronUp, ExternalLink, Target, BarChartHorizontal,
-  Info, Sparkles, Scale, XCircle, Search, ArrowRightLeft
+  Info, Sparkles, Scale, XCircle, Search, ArrowRightLeft, RefreshCw
 } from 'lucide-react';
 import { StockInfo, LoadingStatus, Source, PriceAlert, AlertType, PredictionData, TechIndicators, AnalystRating, NewsItem, CompanyMetrics } from '../types';
 import { GeminiService } from '../services/geminiService';
@@ -71,8 +71,7 @@ const StockCard: React.FC<StockCardProps> = ({ stock, onNotify, isWatched, onTog
   
   const [showInfo, setShowInfo] = useState(false);
 
-  // News expansion
-  const [showNews, setShowNews] = useState(false);
+  // News State
   const [newsList, setNewsList] = useState<NewsItem[]>([]);
   const [newsStatus, setNewsStatus] = useState<LoadingStatus>(LoadingStatus.IDLE);
 
@@ -248,19 +247,16 @@ const StockCard: React.FC<StockCardProps> = ({ stock, onNotify, isWatched, onTog
       }
   };
 
-  const toggleNews = async () => {
-      const next = !showNews;
-      setShowNews(next);
-      if (next && newsList.length === 0 && newsStatus !== LoadingStatus.LOADING) {
-          setNewsStatus(LoadingStatus.LOADING);
-          try {
-              const res = await GeminiService.fetchCompanyNews(stock.queryName, language);
-              setNewsList(res.news);
-              setNewsStatus(LoadingStatus.SUCCESS);
-          } catch (e) { 
-            setNewsStatus(LoadingStatus.ERROR);
-            handleQuotaError(e);
-          }
+  const fetchNews = async () => {
+      if (newsStatus === LoadingStatus.LOADING) return;
+      setNewsStatus(LoadingStatus.LOADING);
+      try {
+          const res = await GeminiService.fetchCompanyNews(stock.queryName, language);
+          setNewsList(res.news);
+          setNewsStatus(LoadingStatus.SUCCESS);
+      } catch (e) { 
+        setNewsStatus(LoadingStatus.ERROR);
+        handleQuotaError(e);
       }
   };
 
@@ -396,7 +392,7 @@ const StockCard: React.FC<StockCardProps> = ({ stock, onNotify, isWatched, onTog
       {/* Main Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         
-        {/* Real-time Data */}
+        {/* Real-time Data (1 col) */}
         <div className="p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg shadow-inner">
           <div className="mb-2 border-b border-slate-200 dark:border-slate-700 pb-2 flex items-center justify-between">
              <h4 className="text-base font-semibold text-slate-700 dark:text-slate-200 flex items-center">
@@ -421,21 +417,24 @@ const StockCard: React.FC<StockCardProps> = ({ stock, onNotify, isWatched, onTog
                     
                     {/* Comparison Chart */}
                     {compChartData.length > 0 && (
-                      <div className="h-40 mt-4 -mx-2 bg-white dark:bg-slate-900/40 rounded-lg border border-slate-100 dark:border-slate-700/50 p-2">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <LineChart data={compChartData}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                            <XAxis dataKey="day" tick={{fontSize: 10}} axisLine={false} tickLine={false} interval="preserveStartEnd" />
-                            <YAxis hide domain={['auto', 'auto']} />
-                            <Tooltip 
-                                contentStyle={{borderRadius: '8px', fontSize: '12px'}}
-                                formatter={(val: number) => [`${val > 0 ? '+' : ''}${val}%`, 'Change']}
-                            />
-                            <Legend wrapperStyle={{fontSize: '10px', paddingTop: '5px'}} iconType="circle" />
-                            <Line type="monotone" dataKey="s1" name={stock.symbol} stroke="#64748b" strokeWidth={2} dot={false} activeDot={{r: 4}} />
-                            <Line type="monotone" dataKey="s2" name={compStock.symbol} stroke="#6366f1" strokeWidth={2} dot={false} activeDot={{r: 4}} />
-                          </LineChart>
-                        </ResponsiveContainer>
+                      <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+                        <h5 className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">5-Day Performance (%)</h5>
+                        <div className="h-40 -mx-2 bg-white dark:bg-slate-900/40 rounded-lg border border-slate-100 dark:border-slate-700/50 p-2">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={compChartData}>
+                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                              <XAxis dataKey="day" tick={{fontSize: 10}} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+                              <YAxis hide domain={['auto', 'auto']} />
+                              <Tooltip 
+                                  contentStyle={{borderRadius: '8px', fontSize: '12px'}}
+                                  formatter={(val: number) => [`${val > 0 ? '+' : ''}${val}%`, 'Change']}
+                              />
+                              <Legend wrapperStyle={{fontSize: '10px', paddingTop: '5px'}} iconType="circle" />
+                              <Line type="monotone" dataKey="s1" name={stock.symbol} stroke="#64748b" strokeWidth={2} dot={false} activeDot={{r: 4}} />
+                              <Line type="monotone" dataKey="s2" name={compStock.symbol} stroke="#6366f1" strokeWidth={2} dot={false} activeDot={{r: 4}} />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </div>
                       </div>
                     )}
 
@@ -476,13 +475,19 @@ const StockCard: React.FC<StockCardProps> = ({ stock, onNotify, isWatched, onTog
 
             {!compStock && (
                 <div className="mt-3">
-                    <button onClick={fetchPrediction} disabled={predictStatus === LoadingStatus.LOADING} className="w-full bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 text-xs py-2 rounded font-bold hover:bg-violet-200 dark:hover:bg-violet-900/60 transition-colors">
-                        {predictStatus === LoadingStatus.LOADING ? 'Analyzing...' : 'AI Prediction (7D)'}
+                    <button onClick={fetchPrediction} disabled={predictStatus === LoadingStatus.LOADING} className={`w-full ${predictStatus === LoadingStatus.ERROR ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' : 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300'} text-xs py-2 rounded font-bold hover:opacity-80 transition-colors`}>
+                        {predictStatus === LoadingStatus.LOADING ? 'Analyzing...' : predictStatus === LoadingStatus.ERROR ? 'Prediction Failed (Retry)' : 'AI Prediction (7D)'}
                     </button>
                     {prediction && (
-                        <div className="mt-2 text-xs bg-white dark:bg-slate-900 p-2 rounded border dark:border-slate-700">
-                            <div className="flex justify-between font-bold text-violet-700 dark:text-violet-300"><span>Target:</span><span>${prediction.predictedPrice}</span></div>
-                            <div className="w-full bg-slate-100 dark:bg-slate-800 h-1 mt-1"><div className="bg-violet-500 h-1" style={{width: `${prediction.confidenceScore}%`}}></div></div>
+                        <div className="mt-2 text-xs bg-white dark:bg-slate-900 p-2 rounded border dark:border-slate-700 animate-fade-in-down">
+                            <div className="flex justify-between font-bold text-violet-700 dark:text-violet-300">
+                                <span>Target:</span>
+                                <span>${typeof prediction.predictedPrice === 'number' ? prediction.predictedPrice.toFixed(2) : prediction.predictedPrice}</span>
+                            </div>
+                            <div className="text-[10px] text-slate-500 mt-1 mb-1 leading-tight">{prediction.reasoning}</div>
+                            <div className="w-full bg-slate-100 dark:bg-slate-800 h-1 mt-1 rounded-full overflow-hidden">
+                                <div className="bg-violet-500 h-1" style={{width: `${prediction.confidenceScore}%`}} title={`Confidence: ${prediction.confidenceScore}%`}></div>
+                            </div>
                         </div>
                     )}
                 </div>
@@ -490,7 +495,7 @@ const StockCard: React.FC<StockCardProps> = ({ stock, onNotify, isWatched, onTog
           </div>
         </div>
 
-        {/* Summary */}
+        {/* Summary (2 cols) */}
         <div className="p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg shadow-inner md:col-span-2 flex flex-col">
             <h4 className="text-base font-semibold text-slate-700 dark:text-slate-200 mb-2 flex items-center justify-between">
                 <span className="flex items-center"><ClipboardList className="w-4 h-4 mr-1 text-teal-500" /> {t('btn.summary')}</span>
@@ -501,22 +506,11 @@ const StockCard: React.FC<StockCardProps> = ({ stock, onNotify, isWatched, onTog
                 <div className="text-xs text-slate-400 flex gap-2">
                     {summarySources.map((s,i) => <a key={i} href={s.uri} target="_blank" className="hover:underline">{s.title}</a>)}
                 </div>
-                <button onClick={toggleNews} className="text-xs text-teal-600 dark:text-teal-400 font-bold flex items-center">{showNews ? 'Hide News' : 'News'} {showNews ? <ChevronUp className="w-3 h-3"/> : <ChevronDown className="w-3 h-3"/>}</button>
             </div>
-            {showNews && (
-                <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-700 text-xs space-y-2">
-                    {newsStatus === LoadingStatus.LOADING ? <Loader2 className="w-4 h-4 animate-spin dark:text-slate-200"/> : newsList.map((n, i) => (
-                        <a key={i} href={n.link} target="_blank" className="block p-1 hover:bg-white dark:hover:bg-slate-800 rounded border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-colors">
-                           <div className="font-bold text-slate-700 dark:text-slate-200 truncate">{n.title}</div>
-                           <div className="flex justify-between text-slate-400"><span>{n.source}</span><span>{n.date}</span></div>
-                        </a>
-                    ))}
-                </div>
-            )}
         </div>
         
-        {/* Investment View */}
-        <div className="p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg shadow-inner md:col-span-3">
+        {/* Investment View (2 cols) */}
+        <div className="p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg shadow-inner md:col-span-2">
              <h4 className="text-base font-semibold text-slate-700 dark:text-slate-200 mb-2 border-b border-slate-200 dark:border-slate-700 pb-1 flex items-center">
                 <Layers className="w-4 h-4 mr-1 text-slate-500" /> {t('btn.view')}
              </h4>
@@ -544,6 +538,51 @@ const StockCard: React.FC<StockCardProps> = ({ stock, onNotify, isWatched, onTog
                 </div>
              )}
         </div>
+
+        {/* News Section (1 col) */}
+        <div className="p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg shadow-inner flex flex-col h-full min-h-[200px]">
+            <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-200 dark:border-slate-700">
+                <h4 className="text-base font-semibold text-slate-700 dark:text-slate-200 flex items-center">
+                    <Newspaper className="w-4 h-4 mr-1 text-orange-500" /> Recent News
+                </h4>
+                <button 
+                  onClick={fetchNews} 
+                  disabled={newsStatus === LoadingStatus.LOADING}
+                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                  title="Refresh News"
+                >
+                  {newsStatus === LoadingStatus.LOADING ? <Loader2 className="w-4 h-4 animate-spin"/> : <RefreshCw className="w-4 h-4"/>}
+                </button>
+            </div>
+            
+            <div className="flex-grow overflow-y-auto pr-1">
+                {newsStatus === LoadingStatus.LOADING && newsList.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full text-slate-400 text-xs">
+                        <Loader2 className="w-5 h-5 animate-spin mb-1"/> Loading news...
+                    </div>
+                ) : newsList.length > 0 ? (
+                    <div className="space-y-3">
+                        {newsList.map((n, i) => (
+                            <a key={i} href={n.link} target="_blank" rel="noopener noreferrer" className="block group">
+                                <div className="text-xs font-bold text-slate-700 dark:text-slate-300 group-hover:text-sky-600 dark:group-hover:text-sky-400 line-clamp-2 transition-colors mb-1">
+                                    {n.title}
+                                </div>
+                                <div className="flex justify-between items-center text-[10px] text-slate-400">
+                                    <span className="truncate max-w-[60%]">{n.source}</span>
+                                    <span>{n.date}</span>
+                                </div>
+                            </a>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="flex flex-col items-center justify-center h-full text-slate-400 text-xs italic">
+                        <p>No news loaded.</p>
+                        <button onClick={fetchNews} className="mt-2 text-sky-600 underline">Load News</button>
+                    </div>
+                )}
+            </div>
+        </div>
+
       </div>
     </div>
   );

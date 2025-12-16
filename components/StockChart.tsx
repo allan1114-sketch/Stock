@@ -31,11 +31,10 @@ const CandleStickShape = (props: any) => {
   // Guard against missing data
   if (open == null || close == null || high == null || low == null) return null;
 
-  const isRising = close > open;
+  const isRising = close >= open;
   const color = isRising ? '#10b981' : '#ef4444'; // Emerald for up, Red for down
   
   // Calculate coordinates using the Y-axis scale
-  // Recharts passes the yAxis scale function in the props for Custom Shapes on Bar
   const yHigh = yAxis.scale(high);
   const yLow = yAxis.scale(low);
   const yOpen = yAxis.scale(open);
@@ -79,7 +78,6 @@ const StockChart: React.FC<StockChartProps> = ({ data, color = "#0ea5e9", annota
   }
 
   // Calculate domain for better visual scaling
-  // For candle, we need to consider high/low to prevent wicks from going off chart
   const allValues = chartType === 'candle' 
     ? data.flatMap(d => [d.high || d.price, d.low || d.price])
     : data.map(d => d.price);
@@ -92,28 +90,39 @@ const StockChart: React.FC<StockChartProps> = ({ data, color = "#0ea5e9", annota
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       const d = payload[0].payload;
+      // Calculate change stats if OHLC is present
+      const hasOHLC = d.open != null && d.close != null;
+      const change = hasOHLC ? d.close - d.open : 0;
+      const changePct = hasOHLC && d.open !== 0 ? (change / d.open) * 100 : 0;
+      const isUp = change >= 0;
+      const colorClass = isUp ? 'text-emerald-600' : 'text-rose-600';
+
       return (
-        <div className="bg-white/95 backdrop-blur-sm p-3 border border-slate-200 shadow-xl rounded-lg min-w-[140px] z-50 text-xs">
-          <p className="text-slate-500 font-medium mb-2 border-b border-slate-100 pb-1">{label}</p>
+        <div className="bg-white/95 backdrop-blur-md p-3 border border-slate-200 shadow-xl rounded-lg min-w-[160px] z-50 text-xs font-sans">
+          <p className="text-slate-500 font-bold mb-2 border-b border-slate-100 pb-1">{label}</p>
           
           {chartType === 'area' ? (
-             <div className="flex items-baseline gap-1">
-                <span className="text-slate-400 font-semibold">Price</span>
-                <span className="text-sky-700 font-bold text-lg">
+             <div className="flex items-baseline justify-between gap-4">
+                <span className="text-slate-400 font-medium">Price</span>
+                <span className="text-sky-700 font-bold text-lg font-mono">
                   {d.price.toFixed(2)}
                 </span>
              </div>
           ) : (
-             <div className="space-y-1.5">
-               <div className="flex justify-between items-center"><span className="text-slate-400 w-8">Open</span> <span className="font-mono font-medium text-slate-700">{d.open?.toFixed(2)}</span></div>
-               <div className="flex justify-between items-center"><span className="text-slate-400 w-8">High</span> <span className="font-mono font-medium text-emerald-600">{d.high?.toFixed(2)}</span></div>
-               <div className="flex justify-between items-center"><span className="text-slate-400 w-8">Low</span> <span className="font-mono font-medium text-rose-600">{d.low?.toFixed(2)}</span></div>
-               <div className="flex justify-between items-center border-t border-slate-100 pt-1 mt-1">
-                 <span className="text-slate-500 font-bold w-8">Close</span> 
-                 <span className={`font-mono font-bold ${d.close > d.open ? 'text-emerald-600' : 'text-rose-600'}`}>
-                   {d.close?.toFixed(2)}
-                 </span>
+             <div className="space-y-2">
+               <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                 <div className="flex justify-between items-center"><span className="text-slate-400">Open</span> <span className="font-mono text-slate-700">{d.open?.toFixed(2)}</span></div>
+                 <div className="flex justify-between items-center"><span className="text-slate-400">High</span> <span className="font-mono text-slate-700">{d.high?.toFixed(2)}</span></div>
+                 <div className="flex justify-between items-center"><span className="text-slate-400">Low</span> <span className="font-mono text-slate-700">{d.low?.toFixed(2)}</span></div>
+                 <div className="flex justify-between items-center"><span className="text-slate-400">Close</span> <span className={`font-mono font-bold ${colorClass}`}>{d.close?.toFixed(2)}</span></div>
                </div>
+               
+               {hasOHLC && (
+                   <div className={`pt-2 border-t border-slate-100 flex justify-between items-center font-bold ${colorClass}`}>
+                       <span>Change</span>
+                       <span>{change > 0 ? '+' : ''}{change.toFixed(2)} ({changePct.toFixed(2)}%)</span>
+                   </div>
+               )}
              </div>
           )}
         </div>
@@ -161,7 +170,15 @@ const StockChart: React.FC<StockChartProps> = ({ data, color = "#0ea5e9", annota
                 <Label value={ann.label} position="insideTopLeft" fill={ann.color || "#ef4444"} fontSize={10} />
               </ReferenceLine>
             ))}
-            <Brush dataKey="time" height={15} stroke="#cbd5e1" fill="#f8fafc" tickFormatter={() => ''} />
+            <Brush 
+                dataKey="time" 
+                height={24} 
+                stroke="#94a3b8" 
+                fill="#f8fafc"
+                travellerWidth={12}
+                tickFormatter={() => ''}
+                alwaysShowText={false} 
+            />
           </AreaChart>
         ) : (
           <ComposedChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 5 }}>
@@ -170,7 +187,7 @@ const StockChart: React.FC<StockChartProps> = ({ data, color = "#0ea5e9", annota
              <YAxis domain={[minPrice - padding, maxPrice + padding]} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} width={45} tickFormatter={(val) => val.toFixed(0)} />
              <Tooltip content={<CustomTooltip />} cursor={{ strokeDasharray: '3 3', stroke: '#cbd5e1' }} />
              
-             {/* Invisible Bars to ensure axis scaling covers the full range of High/Low without relying on the custom shape to drive layout */}
+             {/* Invisible Bars to ensure axis scaling covers the full range of High/Low */}
              <Bar dataKey="high" fillOpacity={0} isAnimationActive={false} />
              <Bar dataKey="low" fillOpacity={0} isAnimationActive={false} />
              
@@ -186,7 +203,15 @@ const StockChart: React.FC<StockChartProps> = ({ data, color = "#0ea5e9", annota
                  <Label value={ann.label} position="insideTopLeft" fill={ann.color || "#ef4444"} fontSize={10} />
                </ReferenceLine>
              ))}
-             <Brush dataKey="time" height={15} stroke="#cbd5e1" fill="#f8fafc" tickFormatter={() => ''} />
+             <Brush 
+                dataKey="time" 
+                height={24} 
+                stroke="#94a3b8" 
+                fill="#f8fafc"
+                travellerWidth={12}
+                tickFormatter={() => ''}
+                alwaysShowText={false} 
+            />
           </ComposedChart>
         )}
       </ResponsiveContainer>

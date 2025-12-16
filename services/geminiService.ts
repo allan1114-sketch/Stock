@@ -289,8 +289,12 @@ export const GeminiService = {
   },
 
   async fetchPricePrediction(companyName: string, lang: Language): Promise<PredictionResponse> {
-    const query = `Analyze historical data and news for ${companyName} to predict price trend for next 7 days.
-    Output JSON. Format: {"predictedPrice": number, "confidenceScore": number, "timeframe": "string", "reasoning": "string"}`;
+    const query = `Perform a technical prediction for ${companyName} stock price for the next 7 days based on recent market news and trends. 
+    This is a simulation.
+    Output a single JSON object. 
+    Format: {"predictedPrice": number, "confidenceScore": number, "timeframe": "7 days", "reasoning": "short explanation"}
+    Example: {"predictedPrice": 150.25, "confidenceScore": 85, "timeframe": "7 days", "reasoning": "Strong earnings report"}
+    Do not add any markdown formatting or explanations outside the JSON.`;
 
     try {
         const response = await ai.models.generateContent({
@@ -298,7 +302,7 @@ export const GeminiService = {
             contents: query,
             config: {
                 tools: [{ googleSearch: {} }],
-                systemInstruction: lang === 'en' ? "You are an AI market simulator. Output JSON only." : "你是一個 AI 市場模擬器。Output JSON only.",
+                systemInstruction: "You are a financial AI. Output strictly valid JSON.",
             }
         });
         
@@ -308,10 +312,24 @@ export const GeminiService = {
         const uniqueSources = Array.from(new Map(sources.map((s: any) => [s.uri, s])).values()) as { uri: string; title: string }[];
 
         if (response.text) {
-            const data = cleanAndParseJSON(response.text) as PredictionData;
-            return { data, sources: uniqueSources.slice(0, 3) };
+            const data = cleanAndParseJSON(response.text) as any;
+            
+            // Runtime type coercion to ensure numbers are not strings
+            if (data) {
+                if (typeof data.predictedPrice === 'string') {
+                    // Extract number from string like "$150.00"
+                    const num = parseFloat(data.predictedPrice.replace(/[^0-9.-]/g, ''));
+                    data.predictedPrice = isNaN(num) ? 0 : num;
+                }
+                if (typeof data.confidenceScore === 'string') {
+                    const num = parseFloat(data.confidenceScore.replace(/[^0-9.-]/g, ''));
+                    data.confidenceScore = isNaN(num) ? 50 : num;
+                }
+            }
+            
+            return { data: data as PredictionData, sources: uniqueSources.slice(0, 3) };
         }
-        throw new Error("Prediction failed");
+        throw new Error("Prediction failed: No text in response");
     } catch (e) {
         handleGeminiError(e);
     }
